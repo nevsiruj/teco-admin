@@ -1,0 +1,27 @@
+import { NextResponse } from "next/server";
+import { getAllEvents, getAllUsers, getAllSuggestions, getOwnerContext } from "@/lib/db";
+import { computeMetrics } from "@/lib/utils";
+
+export async function GET() {
+  const events = getAllEvents();
+  const users = getAllUsers();
+  const suggestions = getAllSuggestions();
+  const ownerContext = getOwnerContext();
+  const metrics = computeMetrics(events);
+  return NextResponse.json({
+    events,
+    users,
+    suggestions,
+    ownerContext,
+    metrics,
+    llm: {
+      mode: process.env.MIMO_API_KEY ? "live" : "heuristic-fallback",
+      provider: process.env.LLM_PROVIDER || "No configurado",
+    },
+    trii: {
+      configured: Boolean(process.env.TRII_TOKEN || process.env.TRII_API_KEY),
+      endpoint: process.env.TRII_ENDPOINT || "",
+    },
+    storage: { mode: "sqlite" },
+  });
+}

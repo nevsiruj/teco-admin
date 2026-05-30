@@ -3,6 +3,13 @@
 *.log
 *.err.log
 *.out.log
+
+# Next.js
+.next/
+node_modules/
+
+# Build
+dist/
 *.pid
 node_modules
 *.sqlite

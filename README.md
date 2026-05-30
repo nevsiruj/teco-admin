@@ -1,6 +1,6 @@
-# Wofory MVP Prototype
+# TECO — Prototipo MVP
 
-Prototipo autocontenido del MVP de Wofory en una sola carpeta.
+Prototipo autocontenido del MVP de TECO en una sola carpeta.
 
 ## Qué muestra
 
@@ -44,7 +44,7 @@ Variables soportadas:
 - `TRII_API_KEY_HEADER` (opcional)
 - `HOST` (default: `127.0.0.1`)
 - `PORT` (default: `8787`)
-- `INSTATUNNEL_SUBDOMAIN` (opcional, default: `wofory-preview-gs-2026`)
+- `INSTATUNNEL_SUBDOMAIN` (opcional, default: `teco-preview-gs-2026`)
 - `INSTATUNNEL_REQUEST_TIMEOUT` (opcional, default: `45s`)
 - `LOGS_DIR` (opcional, default: `./logs`)
 

@@ -1,0 +1,41 @@
+@import "tailwindcss";
+
+@theme {
+  --color-brand-green: #3d8b37;
+  --color-brand-green-dark: #1a3a1a;
+  --color-brand-green-light: #2d5a2a;
+  --color-brand-orange: #d17a2a;
+  --color-brand-brown: #8b5a2b;
+  --color-brand-bg: #f8faf8;
+  --color-brand-card: #ffffff;
+  --color-brand-border: #e2e8e2;
+  --color-brand-text: #1a2e1a;
+  --color-brand-muted: #6b8b6b;
+}
+
+html, body {
+  font-family: system-ui, -apple-system, sans-serif;
+  background: var(--color-brand-bg);
+  color: var(--color-brand-text);
+}
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-thumb { background: #b0c4b0; border-radius: 8px; }
+
+/* Tag animations */
+@keyframes tagIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.tag-animated {
+  animation: tagIn 0.25s ease-out;
+}
+
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-up {
+  animation: fadeUp 0.4s ease-out;
+}

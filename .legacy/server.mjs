@@ -24,21 +24,21 @@ const interactionLogsDir = path.join(logsDir, "interactions");
 const serverErrorsLogFile = path.join(logsDir, "server-errors.jsonl");
 const sqliteFile = process.env.SQLITE_DB_PATH
   ? path.resolve(process.env.SQLITE_DB_PATH)
-  : path.join(__dirname, "teco.sqlite");
+  : path.join(__dirname, "wofory.sqlite");
 let sqliteDb = null;
 let sqliteStorageReady = false;
 let sqliteDriver = null;
 
 const authConfig = {
   username: process.env.ADMIN_USERNAME || "admin",
-  passwordSalt: process.env.ADMIN_PASSWORD_SALT || "teco-demo-admin-20260529",
+  passwordSalt: process.env.ADMIN_PASSWORD_SALT || "wofory-demo-admin-20260529",
   passwordHash:
     process.env.ADMIN_PASSWORD_HASH ||
     "caab151a07e002b83e7d7158fd0baa4c21a419f4fafe2b1575eaea2181d84f104b1998b090f72c6ff351e70d047f31905832ccf9dcac0e8d7e3054a63b8239d0",
   sessionSecret:
     process.env.AUTH_SESSION_SECRET ||
-    "teco-demo-session-secret-rotate-after-pilot",
-  cookieName: "teco_admin_session",
+    "wofory-demo-session-secret-rotate-after-pilot",
+  cookieName: "wofory_admin_session",
   maxAgeSeconds: Number(process.env.AUTH_SESSION_MAX_AGE_SECONDS || 60 * 60 * 12),
 };
 
@@ -63,7 +63,7 @@ const envConfig = {
   metaVerifyToken: process.env.META_VERIFY_TOKEN || "",
   triiApiVersion: (process.env.TRII_API_VERSION || "").toLowerCase(),
   triiEndpoint:
-    process.env.TRII_ENDPOINT || "https://teco.trii.com.ar/api/v1/public/channelwhatsapp/sendMsg",
+    process.env.TRII_ENDPOINT || "https://wofory.trii.com.ar/api/v1/public/channelwhatsapp/sendMsg",
   triiToken: process.env.TRII_TOKEN || "",
   triiIdCanal: process.env.TRII_ID_CANAL || "1",
   triiV2Endpoint: process.env.TRII_V2_ENDPOINT || "https://api.trii.app/api/v2/Messages",
@@ -74,7 +74,7 @@ const envConfig = {
 
 const defaultOwnerContext = {
   businessContext:
-    "TECO ayuda a trabajadores independientes informales a registrar eventos economicos simples desde mensajes tipo WhatsApp. Un evento economico puede ser un servicio o la venta de un producto. La prioridad es ordenar bien lo que paso para luego mostrarlo en lista, dashboard y exportacion. Cuando ya hay historial, tambien responde consultas simples sobre estadisticas, totales, pendientes, trabajos mas caros, frecuencia por rubro y comparaciones.",
+    "Wofory ayuda a trabajadores independientes informales a registrar eventos economicos simples desde mensajes tipo WhatsApp. Un evento economico puede ser un servicio o la venta de un producto. La prioridad es ordenar bien lo que paso para luego mostrarlo en lista, dashboard y exportacion. Cuando ya hay historial, tambien responde consultas simples sobre estadisticas, totales, pendientes, trabajos mas caros, frecuencia por rubro y comparaciones.",
   interpretationRules: [
     "Distinguir si el mensaje habla de servicio o producto.",
     "Distinguir si el evento ya fue realizado o si sigue pendiente.",
@@ -84,7 +84,7 @@ const defaultOwnerContext = {
     "Mantener respuestas simples, claras y utiles para el trabajador.",
   ].join("\n"),
   systemPrompt:
-    "Eres el motor de interpretación del MVP de TECO. Devuelves únicamente JSON válido y sin markdown.",
+    "Eres el motor de interpretación del MVP de Wofory. Devuelves únicamente JSON válido y sin markdown.",
   promptTemplate: `
 Fecha: {{today}}
 Negocio: {{businessContext}}
@@ -93,7 +93,7 @@ Trabajador: {{workerName}} | {{workerPhone}}
 Historial del trabajador: {{workerHistory}}
 Mensaje: """{{message}}"""
 
-Convierte el mensaje en un evento económico de TECO.
+Convierte el mensaje en un evento económico de Wofory.
 Puede ser servicio o producto.
 Si el mensaje es una pregunta sobre historial, estadisticas, totales, pendientes, trabajos mas caros o comparaciones, no inventes un evento: responde usando el historial del trabajador.
 
@@ -445,7 +445,7 @@ const server = http.createServer(async (req, res) => {
 });
 
 server.listen(port, host, () => {
-  console.log(`TECO prototype running on http://${host}:${port}`);
+  console.log(`Wofory MVP prototype running on http://${host}:${port}`);
 });
 
 async function processIncomingMessage(body) {
@@ -1195,7 +1195,7 @@ async function suggestContextLearning({ message, normalizedEvent, analysis, owne
           {
             role: "system",
             content:
-              "Eres un analista de aprendizaje de contexto para TECO. Devuelves únicamente JSON válido y sin markdown.",
+              "Eres un analista de aprendizaje de contexto para Wofory. Devuelves únicamente JSON válido y sin markdown.",
           },
           {
             role: "user",
@@ -1222,7 +1222,7 @@ function buildLearningSuggestionPrompt({ message, normalizedEvent, analysis, own
   const savedContext = normalizeOwnerContext(ownerContext);
 
   return `
-Estamos evaluando si el último mensaje deja una enseñanza útil para el contexto base de TECO.
+Estamos evaluando si el último mensaje deja una enseñanza útil para el contexto base de Wofory.
 
 Contexto actual del negocio:
 ${savedContext.businessContext}
@@ -4581,7 +4581,7 @@ function sendLoginPage(res, error) {
 function sendCsv(res, csvContent) {
   res.writeHead(200, {
     "Content-Type": "text/csv; charset=utf-8",
-    "Content-Disposition": 'attachment; filename="teco-eventos-economicos.csv"',
+    "Content-Disposition": 'attachment; filename="wofory-eventos-economicos.csv"',
     "Access-Control-Allow-Origin": "*",
   });
   res.end(csvContent);
@@ -4612,4 +4612,3 @@ async function readBodyText(req) {
   }
   return Buffer.concat(chunks).toString("utf8");
 }
-

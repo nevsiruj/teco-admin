@@ -13,7 +13,7 @@ const RECONNECT_BASE_MS = 5_000;
 const RECONNECT_MAX_MS = 45_000;
 const PUBLIC_FAILURE_LIMIT = 2;
 const LOCAL_FAILURE_LIMIT = 4;
-const SUBDOMAIN = process.env.INSTATUNNEL_SUBDOMAIN || "wofory-preview-gs-2026";
+const SUBDOMAIN = process.env.INSTATUNNEL_SUBDOMAIN || "teco-preview-gs-2026";
 const REQUEST_TIMEOUT = process.env.INSTATUNNEL_REQUEST_TIMEOUT || "45s";
 const BROWSER_UA =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36";
@@ -82,7 +82,7 @@ async function isHealthyPage(url) {
     }
 
     const text = await response.text();
-    return /WOFORY|Vista simple para validar/i.test(text);
+    return /TECO|Vista simple para validar/i.test(text);
   } catch {
     return false;
   }

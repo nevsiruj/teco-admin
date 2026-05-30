@@ -1,12 +1,29 @@
 {
-  "name": "wofory-mvp-m27-prototype",
-  "version": "1.0.0",
+  "name": "teco-assistant",
+  "version": "2.0.0",
   "private": true,
+  "description": "TECO — tu asistente. Infraestructura del trabajo.",
   "type": "module",
-  "description": "Prototipo autocontenido del MVP de Wofory con motor LLM.",
   "scripts": {
-    "start": "node server.mjs",
-    "public:tunnel": "node public-tunnel-supervisor.mjs",
-    "public:tunnel:insta": "node public-instatunnel-supervisor.mjs"
+    "dev": "next dev --turbopack",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "next": "^15.3.2",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "uuid": "^11.1.0",
+    "zod": "^3.24.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.7",
+    "@types/node": "^22.15.21",
+    "@types/react": "^19.1.4",
+    "@types/react-dom": "^19.1.5",
+    "@types/uuid": "^10.0.0",
+    "tailwindcss": "^4.1.7",
+    "typescript": "^5.8.3"
   }
 }
