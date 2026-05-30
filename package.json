@@ -1,0 +1,12 @@
+{
+  "name": "wofory-mvp-m27-prototype",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Prototipo autocontenido del MVP de Wofory con motor LLM.",
+  "scripts": {
+    "start": "node server.mjs",
+    "public:tunnel": "node public-tunnel-supervisor.mjs",
+    "public:tunnel:insta": "node public-instatunnel-supervisor.mjs"
+  }
+}

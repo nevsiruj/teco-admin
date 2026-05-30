@@ -1,0 +1,56 @@
+[
+  {
+    "id": "d1f08f85-18f8-4f08-a656-83a20df9c70f",
+    "name": "Cliente Test",
+    "phone": "5493544415532",
+    "source": "meta-webhook",
+    "createdAt": "2026-05-14T17:35:26.477Z",
+    "updatedAt": "2026-05-18T20:41:11.938Z",
+    "lastSeenAt": "2026-05-18T20:41:11.938Z"
+  },
+  {
+    "id": "7b4ffc9c-f916-4fe3-bb7a-b7ee8ca17447",
+    "name": "QA Research",
+    "phone": "5493517770011",
+    "source": "local-research-test",
+    "createdAt": "2026-04-29T19:46:50.977Z",
+    "updatedAt": "2026-04-29T19:54:00.115Z",
+    "lastSeenAt": "2026-04-29T19:54:00.115Z"
+  },
+  {
+    "id": "140dce0f-4dde-407f-a36f-73a543d1c53f",
+    "name": "QA Wofory",
+    "phone": "5493517770000",
+    "source": "local-owner-sheet-test",
+    "createdAt": "2026-04-29T15:15:21.819Z",
+    "updatedAt": "2026-04-29T15:26:55.587Z",
+    "lastSeenAt": "2026-04-29T15:26:55.587Z"
+  },
+  {
+    "id": "f03fefd2-86ed-42a4-b5c7-23fb2f1e8e15",
+    "name": "Mica Ruiz",
+    "phone": "5493510000003",
+    "source": "manual-ui",
+    "createdAt": "2026-04-26T22:57:15.925Z",
+    "updatedAt": "2026-04-26T22:57:15.925Z",
+    "lastSeenAt": "2026-04-26T22:57:15.925Z"
+  },
+  {
+    "id": "f95ab5a4-eaf0-410d-868e-ae9232d1e7d5",
+    "name": "Marta Lopez",
+    "phone": "5493510000002",
+    "source": "manual-ui",
+    "createdAt": "2026-04-26T22:56:59.032Z",
+    "updatedAt": "2026-04-26T22:56:59.032Z",
+    "lastSeenAt": "2026-04-26T22:56:59.032Z"
+  },
+  {
+    "id": "fbb6d7b3-8f96-4f83-b1f0-33d4cf8af39e",
+    "name": "Juan Perez",
+    "phone": "5493510000001",
+    "source": "manual-ui",
+    "createdAt": "2026-04-26T22:56:21.633Z",
+    "updatedAt": "2026-04-26T22:56:36.478Z",
+    "lastSeenAt": "2026-04-26T22:56:36.478Z"
+  }
+]

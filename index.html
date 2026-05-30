@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Panel del agente Wofory</title>
+    <style>
+      .app-layout{display:flex;min-height:100vh}.sidebar{position:fixed;top:0;left:0;bottom:0;width:240px;z-index:100;overflow-y:auto}.main-content{flex:1;margin-left:240px;min-height:100vh}.page-section{display:none}.page-section.active{display:block}@media(max-width:768px){.sidebar{transform:translateX(-100%)}body.sidebar-open .sidebar{transform:translateX(0)}.main-content{margin-left:0}}
+    </style>
+    <link rel="stylesheet" href="/styles.css?v=20260529-sidebar-llm-2" />
+  </head>
+  <body>
+    <div class="app-layout">
+
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+          <div class="brand">WOFORY</div>
+          <span class="sidebar-subtitle">Panel de control</span>
+        </div>
+        <nav class="sidebar-nav" id="sidebarNav">
+          <a href="#resumen" class="nav-item active" data-section="resumen">
+            <span class="nav-icon">&#9632;</span>
+            <span>Resumen</span>
+          </a>
+          <a href="#probar-agente" class="nav-item" data-section="probar-agente">
+            <span class="nav-icon">&#9654;</span>
+            <span>Probar agente</span>
+          </a>
+          <a href="#comportamiento" class="nav-item" data-section="comportamiento">
+            <span class="nav-icon">&#9881;</span>
+            <span>Comportamiento</span>
+          </a>
+          <a href="#trabajadores" class="nav-item" data-section="trabajadores">
+            <span class="nav-icon">&#9679;</span>
+            <span>Trabajadores</span>
+          </a>
+          <a href="#conversaciones" class="nav-item" data-section="conversaciones">
+            <span class="nav-icon">&#9993;</span>
+            <span>Conversaciones</span>
+          </a>
+          <a href="#eventos" class="nav-item" data-section="eventos">
+            <span class="nav-icon">&#9776;</span>
+            <span>Eventos economicos</span>
+          </a>
+          <a href="#aprendizajes" class="nav-item" data-section="aprendizajes">
+            <span class="nav-icon">&#10024;</span>
+            <span>Aprendizajes</span>
+            <span class="nav-badge hidden" id="pendingBadge" aria-label="sugerencias pendientes">0</span>
+          </a>
+          <a href="#sistema" class="nav-item" data-section="sistema">
+            <span class="nav-icon">&#9878;</span>
+            <span>Estado del sistema</span>
+          </a>
+        </nav>
+        <div class="sidebar-footer">
+          <div class="sidebar-status" id="topbarStatus">
+            <span class="status-dot" id="statusDot"></span>
+            <span class="status-label" id="statusLabel">Cargando...</span>
+          </div>
+        </div>
+      </aside>
+
+      <button class="mobile-menu-btn" id="mobileMenuBtn" type="button" aria-label="Menu">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="mobile-overlay" id="mobileOverlay"></div>
+
+      <main class="main-content">
+
+        <section class="page-section active" id="resumen" data-page="resumen">
+          <div class="page-header">
+            <h1>Resumen general</h1>
+            <p class="page-desc">Vista rapida del estado de tus registros y actividad del agente.</p>
+          </div>
+          <div class="metric-grid metric-grid-core">
+            <article class="metric-card">
+              <span>Registrados</span>
+              <strong id="metricEvents">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Pendientes</span>
+              <strong id="metricPending">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Cobrados</span>
+              <strong id="metricCollected">0</strong>
+            </article>
+            <article class="metric-card">
+              <span>Total cobrado</span>
+              <strong id="metricRevenue">$0</strong>
+            </article>
+          </div>
+          <details class="secondary-details">
+            <summary>Ver mas metricas</summary>
+            <div class="subgrid">
+              <article class="subpanel">
+                <h3>Mix de eventos</h3>
+                <div id="eventMix" class="list-block empty">Todavia no hay datos suficientes.</div>
+              </article>
+              <article class="subpanel">
+                <h3>Categorias mas frecuentes</h3>
+                <div id="topCategories" class="list-block empty">Todavia no hay datos.</div>
+              </article>
+            </div>
+          </details>
+        </section>
+
+        <section class="page-section" id="probar-agente" data-page="probar-agente">
+          <div class="page-header">
+            <h1>Probar agente</h1>
+            <p class="page-desc">Escribi un mensaje como si fuera un WhatsApp de un trabajador. El agente lo interpreta, registra y responde.</p>
+          </div>
+
+          <div class="two-col">
+            <div class="col-left">
+              <div class="panel">
+                <div class="sample-bar">
+                  <span class="sample-label">Ejemplos rapidos:</span>
+                  <button class="ghost-button sample-btn" id="sampleServiceButton" type="button">Servicio cobrado</button>
+                  <button class="ghost-button sample-btn" id="sampleProductButton" type="button">Producto vendido</button>
+                  <button class="ghost-button sample-btn" id="samplePendingButton" type="button">Pendiente de cobro</button>
+                  <button class="ghost-button sample-btn" id="sampleStatsButton" type="button">Consulta historica</button>
+                </div>
+
+                <form id="messageForm" class="form-stack">
+                  <div class="identity-row">
+                    <label class="identity-field">
+                      <span class="field-label">Nombre del trabajador</span>
+                      <input id="workerName" name="workerName" type="text" placeholder="Ej: Jose Gomez" />
+                    </label>
+                    <label class="identity-field">
+                      <span class="field-label">Telefono WhatsApp</span>
+                      <input id="workerPhone" name="workerPhone" type="text" placeholder="+5493511234567" />
+                    </label>
+                    <button class="ghost-button identity-button" id="registerUserButton" type="button">Identificar</button>
+                  </div>
+                  <p id="userStatus" class="user-status">El numero identifica al trabajador y permite comparar sus registros.</p>
+
+                  <label class="message-label">
+                    <span class="field-label">Mensaje estilo WhatsApp</span>
+                    <textarea
+                      id="message"
+                      name="message"
+                      rows="5"
+                      placeholder="Ej: Hoy vendi 12 botellas de aceite en General Paz por 36000 y ya me pagaron en efectivo."
+                    ></textarea>
+                  </label>
+
+                  <div class="form-actions">
+                    <button class="primary-button" type="submit">Procesar mensaje</button>
+                    <label class="toggle-row">
+                      <input id="sendViaTrii" name="sendViaTrii" type="checkbox" />
+                      <span>Enviar respuesta por WhatsApp</span>
+                    </label>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <div class="col-right">
+              <div class="panel">
+                <div class="panel-head">
+                  <h2>Resultado del agente</h2>
+                  <span class="small-pill" id="analysisMode">Esperando mensaje</span>
+                </div>
+
+                <div class="analysis-body">
+                  <div class="summary-grid">
+                    <div class="summary-card">
+                      <span>Tipo</span>
+                      <strong id="summaryKind">Sin leer</strong>
+                    </div>
+                    <div class="summary-card">
+                      <span>Ejecucion</span>
+                      <strong id="summaryExecution">Sin leer</strong>
+                    </div>
+                    <div class="summary-card">
+                      <span>Cobro</span>
+                      <strong id="summaryPayment">Sin leer</strong>
+                    </div>
+                    <div class="summary-card">
+                      <span>Monto</span>
+                      <strong id="summaryAmount">-</strong>
+                    </div>
+                    <div class="summary-card">
+                      <span>Fecha</span>
+                      <strong id="summaryDate">-</strong>
+                    </div>
+                    <div class="summary-card">
+                      <span>Zona</span>
+                      <strong id="summaryArea">-</strong>
+                    </div>
+                  </div>
+
+                  <article>
+                    <h3>Checklist de datos</h3>
+                    <div id="validationChecklist" class="validation-checklist empty">
+                      Todavia no hay informacion validada para mostrar.
+                    </div>
+                  </article>
+
+                  <article>
+                    <h3>Respuesta al trabajador</h3>
+                    <p id="workerFeedback" class="message-box muted">Todavia no hay mensaje procesado.</p>
+                  </article>
+
+                  <article>
+                    <h3>Si faltara algo</h3>
+                    <p id="clarificationMessage" class="message-box muted">Si faltan datos, apareceran aca.</p>
+                  </article>
+
+                  <article id="missingFieldsSection" class="hidden">
+                    <h3>Pendientes por confirmar</h3>
+                    <div id="missingFields" class="chips empty">Sin datos todavia.</div>
+                  </article>
+
+                  <article id="trackingCard" class="tracking-card hidden">
+                    <h3>Seguimiento del trabajador</h3>
+                    <p id="trackingSummary" class="message-box muted">Cuando haya historial, apareceran comparaciones.</p>
+                    <div id="trackingStats" class="tracking-stats"></div>
+                  </article>
+
+                  <article id="extraDataCard" class="extra-data-card hidden">
+                    <h3>Datos extra detectados</h3>
+                    <div id="extraDataList" class="extra-data-list"></div>
+                  </article>
+
+                  <article id="learningSuggestionCard" class="learning-card hidden">
+                    <div class="panel-head compact">
+                      <h3>Sugerencia para el agente</h3>
+                      <span class="small-pill success" id="learningSuggestionState">Nuevo</span>
+                    </div>
+                    <p id="learningSuggestionReason" class="message-box muted">Si el agente detecta algo util, aparece aca.</p>
+                    <div class="learning-grid">
+                      <div>
+                        <h4>Contexto sugerido</h4>
+                        <p id="learningSuggestionContext" class="message-box muted">Sin sugerencia.</p>
+                      </div>
+                      <div>
+                        <h4>Regla sugerida</h4>
+                        <p id="learningSuggestionRule" class="message-box muted">Sin sugerencia.</p>
+                      </div>
+                    </div>
+                    <p id="learningSuggestionSavedNote" class="suggestion-saved-note hidden">Esta sugerencia quedó guardada en Aprendizajes para que la revisen.</p>
+                    <div class="action-row">
+                      <button class="ghost-button" id="applySuggestionButton" type="button">Aplicar al borrador</button>
+                    </div>
+                  </article>
+
+                  <details class="technical-details">
+                    <summary>Detalle tecnico (opcional)</summary>
+                    <div class="technical-stack">
+                      <article>
+                        <h3>Registro interno</h3>
+                        <pre id="normalizedEvent" class="json-box">{}</pre>
+                      </article>
+                      <article>
+                        <h3>Confianza de lectura</h3>
+                        <p id="confidenceState" class="message-box muted">Sin datos todavia.</p>
+                      </article>
+                      <article>
+                        <h3>Canal de envio</h3>
+                        <p id="triiDelivery" class="message-box muted">No se envio nada todavia.</p>
+                      </article>
+                    </div>
+                  </details>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-section" id="comportamiento" data-page="comportamiento">
+          <div class="page-header">
+            <h1>Comportamiento del agente</h1>
+            <p class="page-desc">Aca controlas como el agente entiende tu negocio, que registra y como responde. Todo lo que escribas aca le da forma al comportamiento del sistema.</p>
+          </div>
+
+          <div class="context-editor">
+            <div class="panel">
+              <div class="panel-head compact">
+                <h2>Descripcion del negocio</h2>
+                <span class="small-pill" id="contextSaveState">Sin cambios</span>
+              </div>
+              <p class="panel-desc">Explica brevemente que hace tu negocio. Esto le da contexto al agente para entender mejor los mensajes.</p>
+              <label>
+                <textarea id="businessContext" name="businessContext" rows="4" placeholder="Ej: Registramos eventos economicos de trabajadores independientes."></textarea>
+              </label>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head compact">
+                <h2>Reglas de interpretacion</h2>
+              </div>
+              <p class="panel-desc">Decile al agente que mirar, que preguntar si falta algo y que priorizar al leer cada mensaje.</p>
+              <label>
+                <textarea id="interpretationRules" name="interpretationRules" rows="5" placeholder="Ej: Distinguir servicio o producto. Distinguir realizado o pendiente."></textarea>
+              </label>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head compact">
+                <h2>Forma de responder</h2>
+              </div>
+              <p class="panel-desc">Define el tono y estilo de las respuestas que el agente le da a los trabajadores.</p>
+              <label>
+                <textarea id="systemPrompt" name="systemPrompt" rows="3" placeholder="Ej: Sos el motor de interpretacion de Wofory. Respondes claro y breve."></textarea>
+              </label>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head compact">
+                <h2>Contexto automatico del agente</h2>
+              </div>
+              <p class="panel-desc">Estos son los datos que el agente usa automaticamente cada vez que procesa un mensaje. No hace falta que los escribas.</p>
+              <div class="context-source-grid">
+                <article class="context-source">
+                  <h4>Datos que se suman solos</h4>
+                  <div id="automaticContextList" class="context-bullets empty">Cargando...</div>
+                </article>
+                <article class="context-source">
+                  <h4>Reglas internas</h4>
+                  <div id="internalRulesList" class="context-bullets empty">Cargando...</div>
+                </article>
+                <article class="context-source">
+                  <h4>Si hay dudas</h4>
+                  <div id="fallbackRulesList" class="context-bullets empty">Cargando...</div>
+                </article>
+              </div>
+            </div>
+
+            <details class="secondary-details advanced-guide">
+              <summary>Prompt avanzado (solo si sabes lo que haces)</summary>
+              <div class="panel" style="margin-top: 12px;">
+                <p class="panel-desc">Este es el texto interno que el agente usa para leer cada mensaje. Modificarlo puede cambiar drasticamente el comportamiento. Solo tocalo si entendes la estructura.</p>
+                <label>
+                  <textarea id="promptTemplate" name="promptTemplate" rows="8" placeholder="Usar referencias como {{today}}, {{businessContext}}, etc."></textarea>
+                </label>
+              </div>
+            </details>
+
+            <div class="action-row" style="margin-top: 16px;">
+              <button class="primary-button" id="saveContextButton" type="button">Guardar configuracion</button>
+            </div>
+          </div>
+        </section>
+
+        <section class="page-section" id="trabajadores" data-page="trabajadores">
+          <div class="page-header">
+            <h1>Trabajadores</h1>
+            <p class="page-desc">Trabajadores detectados por el agente. Se registran automaticamente cuando envian un mensaje.</p>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Usuarios del sistema</h2>
+              <span class="small-pill" id="usersCount">0 trabajadores</span>
+            </div>
+            <div id="usersList" class="users-list empty">Cargando usuarios...</div>
+          </div>
+        </section>
+
+        <section class="page-section" id="conversaciones" data-page="conversaciones">
+          <div class="page-header">
+            <h1>Conversaciones</h1>
+            <p class="page-desc">Ultimos mensajes procesados por el agente, con la respuesta que genero.</p>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Conversaciones con el agente</h2>
+              <span class="small-pill" id="conversationsCount">0 mensajes</span>
+            </div>
+            <div id="conversationsList" class="conversations-list empty">Cargando conversaciones...</div>
+          </div>
+        </section>
+
+        <section class="page-section" id="eventos" data-page="eventos">
+          <div class="page-header">
+            <h1>Eventos economicos</h1>
+            <p class="page-desc">Todos los eventos registrados por el agente. Podes exportarlos o vaciar la lista.</p>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Eventos registrados</h2>
+              <div class="action-row">
+                <button class="ghost-button danger-button" id="clearEventsButton" type="button">Vaciar lista</button>
+                <button class="ghost-button" id="exportButton" type="button">Descargar CSV</button>
+                <span class="small-pill" id="savedBadge">0 registrados</span>
+              </div>
+            </div>
+            <div id="eventsList" class="works-list empty">Todavia no hay eventos economicos guardados.</div>
+          </div>
+        </section>
+
+        <section class="page-section" id="aprendizajes" data-page="aprendizajes">
+          <div class="page-header">
+            <h1>Aprendizajes</h1>
+            <p class="page-desc">El agente detecta posibles mejoras a partir de los mensajes. Nada cambia hasta que ustedes aprueben.</p>
+          </div>
+
+          <details class="guide-details" open>
+            <summary>Como probar</summary>
+            <div class="guide-steps">
+              <div class="guide-step">
+                <span class="guide-step-num">1</span>
+                <div>
+                  <strong>Enviar un mensaje real</strong>
+                  <p>Ir a "Probar agente" y escribir un mensaje como lo haria un trabajador por WhatsApp.</p>
+                </div>
+              </div>
+              <div class="guide-step">
+                <span class="guide-step-num">2</span>
+                <div>
+                  <strong>Revisar si aparece una sugerencia</strong>
+                  <p>Si el motor LLM detecta algo mejorable, aparece una tarjeta con la sugerencia en esta misma seccion.</p>
+                </div>
+              </div>
+              <div class="guide-step">
+                <span class="guide-step-num">3</span>
+                <div>
+                  <strong>Aprobar o descartar</strong>
+                  <p>Cada sugerencia tiene botones para aprobar (se aplica al comportamiento) o descartar (se ignora).</p>
+                </div>
+              </div>
+            </div>
+          </details>
+
+          <details class="guide-details">
+            <summary>Ejemplos para probar</summary>
+            <div class="guide-examples">
+              <div class="guide-example">
+                <strong>Producto con cantidad</strong>
+                <p>"Hoy vendi 6 cajas de cerveza en el centro, $18000 cada una, me pagaron en efectivo."</p>
+              </div>
+              <div class="guide-example">
+                <strong>Servicio pendiente de cobro</strong>
+                <p>"Ayer fui a instalar un aire en Nueva Cordoba, el cliente me debe 45000, dijo que paga la semana que viene."</p>
+              </div>
+              <div class="guide-example">
+                <strong>Presupuesto / cotizacion</strong>
+                <p>"Pase un presupuesto de 120000 para pintar un departamento en Alberdi. Todavia no me confirmaron."</p>
+              </div>
+            </div>
+          </details>
+
+          <div class="panel">
+            <div class="panel-head">
+              <h2>Sugerencias del agente</h2>
+              <span class="small-pill" id="suggestionsCount">0 sugerencias</span>
+            </div>
+            <div id="learningSuggestionsList" class="learning-suggestions-list empty">Cargando sugerencias...</div>
+          </div>
+        </section>
+
+        <section class="page-section" id="sistema" data-page="sistema">
+          <div class="page-header">
+            <h1>Estado del sistema</h1>
+            <p class="page-desc">Estado actual de los componentes del sistema: motor LLM, almacenamiento y canal WhatsApp.</p>
+          </div>
+          <div class="panel">
+            <div class="operational-grid">
+              <div class="op-card">
+                <span class="op-label">Motor de lectura (LLM)</span>
+                <strong id="llmStatus" class="op-value">Verificando...</strong>
+                <p id="llmNote" class="op-note">Cargando configuracion.</p>
+              </div>
+              <div class="op-card">
+                <span class="op-label">Almacenamiento</span>
+                <strong id="storageStatus" class="op-value">Verificando...</strong>
+                <p id="storageNote" class="op-note">Cargando estado.</p>
+              </div>
+              <div class="op-card">
+                <span class="op-label">Canal WhatsApp</span>
+                <strong id="triiStatus" class="op-value">Verificando...</strong>
+                <p id="triiNote" class="op-note">Cargando canal.</p>
+              </div>
+              <div class="op-card">
+                <span class="op-label">Ultima actualizacion</span>
+                <strong id="lastUpdate" class="op-value">-</strong>
+                <p class="op-note">Datos del servidor.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <footer class="footer-band">
+          <div>
+            <strong>WOFORY</strong>
+            <p>Panel del agente para duenos. Valida que el sistema entienda bien cada mensaje.</p>
+          </div>
+        </footer>
+
+      </main>
+    </div>
+
+    <script type="module" src="/app.js?v=20260529-sidebar-llm-2"></script>
+  </body>
+</html>
