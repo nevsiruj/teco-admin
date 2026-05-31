@@ -1,18 +1,18 @@
-# TECO — Prototipo MVP
+# TECO Admin
 
-Prototipo autocontenido del MVP de TECO en una sola carpeta.
+Panel donde los dueños administran el sistema TECO.
 
-## Qué muestra
+TECO Admin centraliza la operación del agente: permite revisar actividad, probar mensajes, ajustar el comportamiento del sistema y consultar los registros que se generan desde el flujo tipo WhatsApp.
 
-- Ingreso de un mensaje estilo WhatsApp.
-- Interpretación del mensaje con un motor LLM.
-- Normalización de una unidad de trabajo.
-- Validación de datos mínimos.
-- Pedido de aclaración si falta información.
-- Registro local del trabajo.
-- Dashboard personal simple con métricas básicas.
-- Envío opcional de la respuesta por Triii.
-- Endpoint de webhook para simular entrada real desde Triii.
+## Qué permite administrar
+
+- Panel general de actividad.
+- Playground para probar el agente con mensajes estilo WhatsApp.
+- Reglas y comportamiento del asistente.
+- Trabajadores/usuarios del sistema.
+- Conversaciones y eventos económicos registrados.
+- Aprendizajes sugeridos por el agente para aprobación de los dueños.
+- Estado operativo del sistema.
 
 ## Ejecutar
 
