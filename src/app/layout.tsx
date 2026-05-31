@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "TECO — tu asistente económico",
-  description: "Dashboard operativo de TECO",
+  title: "Admin Interno",
+  description: "Panel de administración",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
