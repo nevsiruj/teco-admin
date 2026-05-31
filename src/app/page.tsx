@@ -208,12 +208,12 @@ export default function Dashboard() {
   const m = state?.metrics;
 
   if (loading) return (
-    <div className="min-h-screen flex items-center justify-center bg-brand-bg">
+    <div className="min-h-screen flex items-center justify-center" style={{background: "linear-gradient(135deg, #0a2d18 0%, #0d3d24 30%, #145a36 60%, #0d3d24 100%)"}}>
       <div className="text-center animate-fade-up">
-        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-linear-to-br from-brand-green to-brand-green-light text-white text-3xl font-extrabold mb-5 shadow-lg shadow-brand-green/25">T</div>
-        <p className="text-brand-muted text-lg font-medium">Cargando TECO…</p>
-        <div className="mt-4 w-48 mx-auto h-1 rounded-full bg-brand-border overflow-hidden">
-          <div className="h-full bg-brand-green rounded-full animate-pulse" style={{width:"60%"}} />
+        <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm text-white text-3xl font-black mb-5 shadow-lg border border-white/10">T</div>
+        <p className="text-white/70 text-lg font-medium">Cargando TECO…</p>
+        <div className="mt-4 w-48 mx-auto h-1 rounded-full bg-white/10 overflow-hidden">
+          <div className="h-full bg-white/30 rounded-full animate-pulse" style={{width:"60%"}} />
         </div>
       </div>
     </div>
@@ -245,42 +245,53 @@ export default function Dashboard() {
       )}
 
       {/* Sidebar */}
-      <aside className={`${sidebarOpen ? "w-72" : "w-[76px]"} transition-all duration-300 ease-in-out flex flex-col flex-shrink-0 shadow-2xl overflow-hidden`}
-        style={{background: "linear-gradient(185deg, #0d2b0d 0%, #143514 35%, #1a4a1a 65%, #1f5a1f 100%)"}}>
+      <aside className={`${sidebarOpen ? "w-72" : "w-[76px]"} transition-all duration-300 ease-in-out flex flex-col flex-shrink-0 shadow-2xl overflow-hidden relative`}
+        style={{background: "linear-gradient(180deg, #1a6b42 0%, #228b56 50%, #1a6b42 100%)"}}>
 
-        {/* Logo */}
-        <div className={`p-5 flex items-center ${sidebarOpen ? "gap-3.5" : "justify-center"} border-b border-white/[0.06]`}>
-          <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-emerald-400 to-brand-orange flex items-center justify-center text-white text-xl font-black flex-shrink-0 shadow-lg shadow-emerald-500/20">
+        {/* Subtle glass overlay */}
+        <div className="absolute inset-0 bg-white/[0.03] pointer-events-none" />
+
+        {/* Logo area */}
+        <div className={`relative p-6 flex items-center ${sidebarOpen ? "gap-3.5" : "flex-col gap-2"}`}>
+          <div className="w-11 h-11 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center text-white text-xl font-black flex-shrink-0 border border-white/15">
             T
           </div>
           {sidebarOpen && (
             <div>
-              <span className="text-lg font-black tracking-widest text-white block">TECO</span>
-              <span className="text-[10px] font-medium text-white/30 tracking-widest uppercase">Asistente económico</span>
+              <span className="text-xl font-black tracking-wider text-white block">TECO</span>
+              <span className="text-[11px] text-white/50 tracking-widest uppercase font-medium">Asistente económico</span>
             </div>
           )}
-          <button onClick={() => setSidebarOpen(!sidebarOpen)} className={`${sidebarOpen ? "ml-auto" : "hidden"} w-7 h-7 rounded-lg bg-white/[0.04] hover:bg-white/[0.1] text-white/30 hover:text-white transition flex items-center justify-center`}>
-            <span className="text-xs">{sidebarOpen ? "◀" : "▶"}</span>
-          </button>
+          {sidebarOpen ? (
+            <button onClick={() => setSidebarOpen(false)} className="ml-auto w-7 h-7 rounded-lg bg-white/[0.1] hover:bg-white/[0.2] text-white/50 hover:text-white transition-all flex items-center justify-center border border-white/[0.08]">
+              <span className="text-xs">◀</span>
+            </button>
+          ) : (
+            <button onClick={() => setSidebarOpen(true)} className="w-10 h-10 rounded-xl bg-white/[0.12] hover:bg-white/[0.22] text-white/70 hover:text-white transition-all flex items-center justify-center border border-white/[0.1] cursor-pointer" title="Expandir menú">
+              <span className="text-sm">▶</span>
+            </button>
+          )}
         </div>
 
+        <div className="h-px bg-white/[0.12] mx-5" />
+
         {/* Navigation */}
-        <nav className="flex-1 px-2.5 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-5 space-y-1 overflow-y-auto relative">
           {NAV.map((n) => (
             <button
               key={n.id}
               onClick={() => setActiveTab(n.id)}
-              className={`group w-full flex items-center ${sidebarOpen ? "gap-3 px-3.5" : "justify-center px-0"} py-3 rounded-2xl text-sm transition-all duration-200 relative ${
+              className={`group w-full flex items-center ${sidebarOpen ? "gap-3.5 px-3.5" : "justify-center px-0"} py-3 rounded-xl text-sm transition-all duration-150 relative ${
                 activeTab === n.id
-                  ? "bg-white/[0.12] text-white font-bold shadow-lg shadow-black/10"
-                  : "hover:bg-white/[0.06] text-white/50 hover:text-white/90"
+                  ? "bg-white/[0.18] text-white font-semibold"
+                  : "hover:bg-white/[0.08] text-white/70 hover:text-white"
               }`}
             >
               {activeTab === n.id && (
-                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-7 rounded-r-full bg-brand-orange shadow-sm shadow-brand-orange/50" />
+                <span className="absolute left-0 top-1/2 -translate-y-1/2 w-[3px] h-6 rounded-r-full bg-brand-orange shadow-sm shadow-brand-orange/60" />
               )}
-              <span className={`w-8 h-8 rounded-xl flex items-center justify-center text-sm flex-shrink-0 transition ${
-                activeTab === n.id ? "bg-white/[0.12]" : "bg-transparent group-hover:bg-white/[0.04]"
+              <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm flex-shrink-0 transition ${
+                activeTab === n.id ? "bg-white/[0.15]" : "bg-transparent group-hover:bg-white/[0.06]"
               }`}>{n.icon}</span>
               {sidebarOpen && <span className="tracking-wide">{n.label}</span>}
             </button>
@@ -289,19 +300,19 @@ export default function Dashboard() {
 
         {/* Bottom */}
         {sidebarOpen && (
-          <div className="px-3 pb-4">
-            <div className="p-4 rounded-2xl bg-white/[0.04] border border-white/[0.06]">
-              <div className="flex items-center gap-2.5 mb-2.5">
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-brand-orange to-amber-500 flex items-center justify-center text-white text-xs font-bold shadow-sm">A</div>
+          <div className="relative px-3 pb-4">
+            <div className="p-4 rounded-2xl bg-white/[0.08] border border-white/[0.1]">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-orange to-amber-400 flex items-center justify-center text-white text-sm font-bold shadow-sm border border-white/10">A</div>
                 <div>
-                  <p className="text-sm font-semibold text-white/80">Admin</p>
-                  <p className="text-[10px] text-white/25">admin@teco.app</p>
+                  <p className="text-sm font-semibold text-white/95">Admin</p>
+                  <p className="text-[11px] text-white/50 font-medium">admin@teco.app</p>
                 </div>
               </div>
-              <div className="h-px bg-white/[0.06] my-2" />
+              <div className="h-px bg-white/[0.1] my-2.5" />
               <div className="flex items-center justify-between">
-                <span className="text-[10px] text-white/20 tracking-widest uppercase">v2.0 · Next.js</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] text-white/35 tracking-widest uppercase font-medium">v2.0 · Next.js</span>
+                <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
               </div>
             </div>
           </div>
@@ -326,12 +337,12 @@ export default function Dashboard() {
           {activeTab === "resumen" && (
             <div className="space-y-6 animate-fade-up">
               {/* Hero */}
-              <div className="relative overflow-hidden p-8 bg-linear-to-br from-brand-green-dark via-brand-green-light to-brand-green rounded-2xl text-white shadow-xl">
-                <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/5" />
-                <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-white/5" />
+              <div className="relative overflow-hidden p-8 bg-linear-to-br from-brand-green-dark via-brand-green to-brand-green-light rounded-2xl text-white shadow-xl">
+                <div className="absolute -top-12 -right-12 w-48 h-48 rounded-full bg-white/[0.04]" />
+                <div className="absolute -bottom-8 -left-8 w-32 h-32 rounded-full bg-white/[0.04]" />
                 <div className="relative">
-                  <h2 className="text-3xl font-extrabold tracking-tight mb-1">Buenos días, admin</h2>
-                  <p className="text-white/70 text-sm">{new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })}</p>
+                  <h2 className="text-3xl font-black tracking-tight mb-1">Buenos días, admin</h2>
+                  <p className="text-white/60 text-sm">{new Date().toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" })}</p>
                   <div className="flex gap-6 mt-5">
                     <div>
                       <p className="text-3xl font-extrabold">{safeEvents.length}</p>

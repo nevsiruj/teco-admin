@@ -33,12 +33,16 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-brand-green-dark via-brand-green-light to-brand-green-dark">
-      <div className="w-full max-w-sm mx-4">
+    <div className="min-h-screen flex items-center justify-center relative overflow-hidden" style={{background: "linear-gradient(135deg, #0a2d18 0%, #0d3d24 30%, #145a36 60%, #0d3d24 100%)"}}>
+      {/* Decorative circles */}
+      <div className="absolute -top-24 -left-24 w-96 h-96 rounded-full bg-brand-green-light/[0.06] blur-3xl" />
+      <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full bg-brand-orange/[0.06] blur-3xl" />
+
+      <div className="w-full max-w-sm mx-4 relative z-10">
         <div className="p-8 bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20">
           <div className="text-center mb-10">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-linear-to-br from-brand-green to-brand-green-light text-white text-2xl font-bold mb-4 shadow-lg shadow-brand-green/30">T</div>
-            <h1 className="text-2xl font-extrabold tracking-tight text-brand-green-dark">TECO</h1>
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm text-white text-2xl font-black mb-4 shadow-lg border border-white/10">T</div>
+            <h1 className="text-2xl font-black tracking-wider text-brand-green-dark">TECO</h1>
             <p className="text-sm text-brand-muted mt-1">Internal Admin</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-5">
