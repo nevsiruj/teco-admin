@@ -168,6 +168,7 @@ Mensaje: """{{message}}"""
 
 Convierte el mensaje en un evento económico de TECO. Responde SOLO con JSON válido con esta estructura:
 {"normalizedEvent": {}, "missingFields": [], "clarificationMessage": "", "workerFeedback": "", "extractionConfidence": 0.0}`,
+  updatedAt: null,
 };
 
 // ─── Interactions ───

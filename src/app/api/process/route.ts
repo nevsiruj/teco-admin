@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { interpretMessage, type LLMResult } from "@/lib/llm";
-import { getAllEvents, insertEvent, type EconomicEvent } from "@/lib/db";
+import { getAllEvents, insertEvent, insertInteraction, type EconomicEvent } from "@/lib/db";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -37,6 +37,18 @@ export async function POST(req: NextRequest) {
     if (event.economicKind || event.amount || event.paymentStatus || event.category) {
       insertEvent(event);
     }
+
+    insertInteraction({
+      id: crypto.randomUUID(),
+      event_id: event.id,
+      worker_name: event.workerName,
+      worker_phone: event.workerPhone,
+      user_message: message,
+      llm_reply: result.workerFeedback || result.clarificationMessage || "",
+      llm_model: process.env.MIMO_MODEL || "llm",
+      source: event.originChannel || "web",
+      created_at: new Date().toISOString(),
+    });
 
     // Generate tracking
     const workerEvents = [...events, event].filter(
