@@ -211,7 +211,7 @@ export default function Dashboard() {
     <div className="min-h-screen flex items-center justify-center" style={{background: "linear-gradient(135deg, #0a2d18 0%, #0d3d24 30%, #145a36 60%, #0d3d24 100%)"}}>
       <div className="text-center animate-fade-up">
         <div className="inline-flex items-center justify-center w-20 h-20 rounded-2xl bg-white/10 backdrop-blur-sm text-white text-3xl font-black mb-5 shadow-lg border border-white/10">T</div>
-        <p className="text-white/70 text-lg font-medium">Cargando TECO…</p>
+        <p className="text-white/70 text-lg font-medium">Cargando…</p>
         <div className="mt-4 w-48 mx-auto h-1 rounded-full bg-white/10 overflow-hidden">
           <div className="h-full bg-white/30 rounded-full animate-pulse" style={{width:"60%"}} />
         </div>
@@ -258,8 +258,7 @@ export default function Dashboard() {
           </div>
           {sidebarOpen && (
             <div>
-              <span className="text-xl font-black tracking-wider text-white block">TECO</span>
-              <span className="text-[11px] text-white/50 tracking-widest uppercase font-medium">Asistente económico</span>
+              <span className="text-xl font-black tracking-wider text-white block">Admin Interno</span>
             </div>
           )}
           {sidebarOpen ? (
@@ -302,17 +301,11 @@ export default function Dashboard() {
         {sidebarOpen && (
           <div className="relative px-3 pb-4">
             <div className="p-4 rounded-2xl bg-white/[0.08] border border-white/[0.1]">
-              <div className="flex items-center gap-3 mb-3">
+              <div className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-brand-orange to-amber-400 flex items-center justify-center text-white text-sm font-bold shadow-sm border border-white/10">A</div>
                 <div>
                   <p className="text-sm font-semibold text-white/95">Admin</p>
-                  <p className="text-[11px] text-white/50 font-medium">admin@teco.app</p>
                 </div>
-              </div>
-              <div className="h-px bg-white/[0.1] my-2.5" />
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] text-white/35 tracking-widest uppercase font-medium">v2.0 · Next.js</span>
-                <span className="w-2 h-2 rounded-full bg-emerald-300 animate-pulse" />
               </div>
             </div>
           </div>
@@ -324,10 +317,6 @@ export default function Dashboard() {
         <header className="sticky top-0 z-20 bg-white/70 backdrop-blur-xl border-b border-brand-border/60 px-8 py-4 flex items-center justify-between">
           <h1 className="text-xl font-bold text-brand-green-dark tracking-tight">{NAV.find((n) => n.id === activeTab)?.label}</h1>
           <div className="flex items-center gap-4 text-xs text-brand-muted">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-700 font-medium">
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              {state.llm.mode === "live" ? "LLM activo" : "Fallback local"}
-            </span>
             <button onClick={handleLogout} className="px-4 py-2 rounded-xl bg-red-50 text-red-600 font-medium hover:bg-red-100 active:scale-95 transition-all">Salir</button>
           </div>
         </header>
@@ -457,7 +446,7 @@ export default function Dashboard() {
                       ))}
                     </div>
                     <div className="mt-4 p-4 rounded-xl bg-brand-green-dark/5 border border-brand-green/10 text-sm text-brand-text">
-                      <p className="font-semibold text-brand-green-dark text-xs uppercase tracking-wider mb-2">Respuesta TECO:</p>
+                      <p className="font-semibold text-brand-green-dark text-xs uppercase tracking-wider mb-2">Respuesta:</p>
                       <p className="text-brand-muted">{result.reply}</p>
                     </div>
                     <p className="text-xs text-brand-muted/60">Modelo: {result.llmMode || "—"} · {result.model || "—"}</p>
@@ -746,10 +735,8 @@ export default function Dashboard() {
             <div className="space-y-6 animate-fade-up">
               <div className="grid md:grid-cols-2 gap-5">
                 {[
-                  { name: "LLM principal", status: state.llm.mode === "live", detail: state.llm.mode === "live" ? "Activo · API configurada" : "Fallback heurístico", icon: "🧠" },
-                  { name: "Modelo", detail: state.llm.provider || "No configurado", status: !!state.llm.provider, icon: "🤖" },
                   { name: "Trii", status: state.trii.configured, detail: state.trii.configured ? "Conectado" : "No configurado", icon: "📱" },
-                  { name: "Almacenamiento", status: true, detail: "JSON file", icon: "💾" },
+                  { name: "Almacenamiento", status: true, detail: "Archivo local", icon: "💾" },
                 ].map((sys) => (
                   <div key={sys.name} className={`p-6 rounded-2xl bg-white border shadow-sm ${sys.status ? "border-green-200" : "border-brand-border"}`}>
                     <div className="flex items-center justify-between mb-3">
@@ -810,7 +797,7 @@ function ConversationsSection() {
           </div>
           {ix.llm_reply && (
             <div className="mt-3 p-4 rounded-xl bg-brand-bg border border-brand-border/40">
-              <p className="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-2">Respuesta TECO</p>
+              <p className="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-2">Respuesta</p>
               <p className="text-sm text-brand-text leading-relaxed">{ix.llm_reply}</p>
             </div>
           )}

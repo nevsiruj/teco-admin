@@ -42,7 +42,7 @@ export default function LoginPage() {
         <div className="p-8 bg-white/95 backdrop-blur-sm rounded-3xl shadow-2xl border border-white/20">
           <div className="text-center mb-10">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-white/10 backdrop-blur-sm text-white text-2xl font-black mb-4 shadow-lg border border-white/10">T</div>
-            <h1 className="text-2xl font-black tracking-wider text-brand-green-dark">TECO</h1>
+            <h1 className="text-2xl font-black tracking-wider text-brand-green-dark">Tu Asistente</h1>
             <p className="text-sm text-brand-muted mt-1">Internal Admin</p>
           </div>
           <form onSubmit={handleSubmit} className="space-y-5">
@@ -84,7 +84,7 @@ export default function LoginPage() {
             </button>
           </form>
         </div>
-        <p className="text-center text-xs text-white/40 mt-6">TECO · tu asistente</p>
+        <p className="text-center text-xs text-white/40 mt-6">tu asistente</p>
       </div>
     </div>
   );
