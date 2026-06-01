@@ -140,12 +140,16 @@ export interface OwnerContext {
   businessContext: string;
   interpretationRules: string;
   systemPrompt: string;
-  promptTemplate: string;  welcomeMessage?: string;
-  dataUsageNotice?: string;  updatedAt: string | null;
+  promptTemplate: string;
+  welcomeMessage?: string;
+  dataUsageNotice?: string;
+  updatedAt: string | null;
 }
 
 export function getOwnerContext(): OwnerContext {
-  const ctx = load().ownerContext && typeof load().ownerContext === "object" ? { ...load().ownerContext } : {};
+  const loadedContext = load().ownerContext;
+  const ctx: Partial<OwnerContext> =
+    loadedContext && typeof loadedContext === "object" ? { ...loadedContext } : {};
   return {
     businessContext: ctx.businessContext || DEFAULT_OWNER_CONTEXT.businessContext || "",
     interpretationRules: ctx.interpretationRules || DEFAULT_OWNER_CONTEXT.interpretationRules || "",

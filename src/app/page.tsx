@@ -13,7 +13,14 @@ interface EconomicEvent {
 interface Metrics { totalEvents: number; totalAmount: number; collectedAmount: number; pendingAmount: number; }
 interface User { id: string; name?: string | null; phone?: string; source?: string; createdAt?: string; updatedAt?: string; lastSeenAt?: string; }
 interface Suggestion { id: string; source?: string; summary?: string; severity?: string; businessContextAddition?: string; interpretationRuleAddition?: string; status?: string; createdAt?: string; }
-interface OwnerContext { systemPrompt?: string; promptTemplate?: string; businessContext?: string; interpretationRules?: string; }
+interface OwnerContext {
+  systemPrompt?: string;
+  promptTemplate?: string;
+  businessContext?: string;
+  interpretationRules?: string;
+  welcomeMessage?: string;
+  dataUsageNotice?: string;
+}
 interface AppState {
   events: EconomicEvent[]; users: User[]; suggestions: Suggestion[]; ownerContext: OwnerContext;
   metrics: Metrics; llm: { mode: string; provider?: string }; trii: { configured: boolean; endpoint?: string };
