@@ -30,7 +30,7 @@ interface AppState {
 }
 interface LLMResult {
   summary?: string; reply?: string; model?: string; provider?: string;
-  normalizedEvent: EconomicEvent; tracking?: any; llmMode?: string;
+  normalizedEvent?: EconomicEvent | null; tracking?: any; llmMode?: string;
 }
 
 const NAV = [
@@ -457,6 +457,7 @@ export default function Dashboard() {
                       <span className="w-8 h-8 rounded-lg bg-brand-green/10 flex items-center justify-center text-base">📋</span>
                       Resultado
                     </h3>
+                    {result.normalizedEvent ? (
                     <div className="space-y-3 text-sm">
                       {[
                         { label: "Tipo", value: labelKind(result.normalizedEvent.economicKind) },
@@ -474,9 +475,14 @@ export default function Dashboard() {
                         </div>
                       ))}
                     </div>
+                    ) : (
+                      <div className="rounded-xl border border-brand-border bg-brand-bg p-4 text-sm text-brand-muted">
+                        Esta consulta no creó un evento nuevo. El agente respondió usando el historial del trabajador.
+                      </div>
+                    )}
                     <div className="mt-4 p-4 rounded-xl bg-brand-green-dark/5 border border-brand-green/10 text-sm text-brand-text">
                       <p className="font-semibold text-brand-green-dark text-xs uppercase tracking-wider mb-2">Respuesta:</p>
-                      <p className="text-brand-muted">{result.reply}</p>
+                      <p className="text-brand-muted">{result.reply || "Sin respuesta generada."}</p>
                     </div>
                     <p className="text-xs text-brand-muted/60">Modelo: {result.llmMode || "—"} · {result.model || "—"}</p>
                   </div>

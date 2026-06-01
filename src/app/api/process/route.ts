@@ -8,11 +8,31 @@ export async function POST(req: NextRequest) {
   try {
     if (isRemoteWoforyEnabled()) {
       const bodyText = await req.text();
-      return proxyRemoteJson("/api/process", {
+      const remoteResponse = await proxyRemoteJson("/api/process", {
         method: "POST",
         headers: { "content-type": "application/json" },
         body: bodyText,
       });
+      const payload = await remoteResponse.json().catch(() => null);
+      if (!payload || typeof payload !== "object") return NextResponse.json(payload, { status: remoteResponse.status });
+
+      const reply =
+        payload.reply ||
+        payload.workerFeedback ||
+        payload.clarificationMessage ||
+        payload.historyQuery?.answer ||
+        "";
+
+      return NextResponse.json(
+        {
+          ...payload,
+          reply,
+          normalizedEvent: payload.normalizedEvent || payload.savedEvent || payload.events?.[0] || null,
+          llmMode: payload.llmMode || payload.mode || payload.llm?.mode || "remote-demo",
+          model: payload.model || payload.llm?.model || payload.llm?.provider || "LLM",
+        },
+        { status: remoteResponse.status }
+      );
     }
 
     const body = await req.json();
