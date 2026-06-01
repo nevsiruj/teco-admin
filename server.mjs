@@ -1624,6 +1624,10 @@ function buildClarificationMessage(missingFields, normalizedEvent) {
     return `Perfecto. Ya tengo registrado el evento económico "${normalizedEvent.economicLabel || "sin título"}".`;
   }
 
+  if (missingFields.length === 1 && missingFields[0] === "paymentStatus") {
+    return "¿Ya te pagaron o queda pendiente de cobro?";
+  }
+
   const friendly = {
     economicLabel: "qué pasó concretamente",
     economicKind: "si fue servicio o producto",
@@ -1686,6 +1690,10 @@ function buildWarmWorkerFeedback({
     parts.push(buildWorkerFeedback(normalizedEvent, missingFields, isComplete));
   } else {
     parts.push(buildClarificationMessage(missingFields, normalizedEvent));
+  }
+
+  if (!isComplete && missingFields?.length === 1 && missingFields[0] === "paymentStatus") {
+    return parts.join(" ");
   }
 
   if (tracking?.categoryLabel) {
