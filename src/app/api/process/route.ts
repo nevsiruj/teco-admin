@@ -22,14 +22,28 @@ export async function POST(req: NextRequest) {
         payload.clarificationMessage ||
         payload.historyQuery?.answer ||
         "";
+      const remoteTracking = payload.tracking || {};
+      const workerTotals = remoteTracking.workerTotals || {};
+      const tracking = payload.tracking
+        ? {
+            ...remoteTracking,
+            totalEvents: remoteTracking.totalEvents ?? workerTotals.totalEvents,
+            totalCollected: remoteTracking.totalCollected ?? workerTotals.totalCollected,
+            collectedEvents: remoteTracking.collectedEvents ?? workerTotals.collectedEvents,
+            pendingEvents: remoteTracking.pendingEvents ?? workerTotals.pendingEvents,
+            pendingCollectionEvents:
+              remoteTracking.pendingCollectionEvents ?? workerTotals.pendingCollectionAmount,
+          }
+        : null;
 
       return NextResponse.json(
         {
           ...payload,
           reply,
+          tracking,
           normalizedEvent: payload.normalizedEvent || payload.savedEvent || payload.events?.[0] || null,
           llmMode: payload.llmMode || payload.mode || payload.llm?.mode || "remote-demo",
-          model: payload.model || payload.llm?.model || payload.llm?.provider || "LLM",
+          model: "LLM",
         },
         { status: remoteResponse.status }
       );

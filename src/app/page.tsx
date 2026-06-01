@@ -69,8 +69,8 @@ export default function Dashboard() {
   const [error, setError] = useState("");
 
   // Probar agente
-  const [workerName, setWorkerName] = useState("Juan");
-  const [workerPhone, setWorkerPhone] = useState("1122334455");
+  const [workerName, setWorkerName] = useState("");
+  const [workerPhone, setWorkerPhone] = useState("");
   const [testMessage, setTestMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<LLMResult | null>(null);
@@ -484,7 +484,7 @@ export default function Dashboard() {
                       <p className="font-semibold text-brand-green-dark text-xs uppercase tracking-wider mb-2">Respuesta:</p>
                       <p className="text-brand-muted">{result.reply || "Sin respuesta generada."}</p>
                     </div>
-                    <p className="text-xs text-brand-muted/60">Modelo: {result.llmMode || "—"} · {result.model || "—"}</p>
+                    <p className="text-xs text-brand-muted/60">Motor: {result.llmMode || "—"} · {result.model || "LLM"}</p>
                   </div>
                   {result.tracking && (
                     <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-6">
