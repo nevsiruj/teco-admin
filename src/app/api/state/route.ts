@@ -1,8 +1,22 @@
 import { NextResponse } from "next/server";
 import { getAllEvents, getAllUsers, getAllSuggestions, getOwnerContext } from "@/lib/db";
+import { getRemoteState, isRemoteWoforyEnabled } from "@/lib/remote-wofory";
 import { computeMetrics } from "@/lib/utils";
 
 export async function GET() {
+  if (isRemoteWoforyEnabled()) {
+    try {
+      const remoteState = await getRemoteState();
+      return NextResponse.json({
+        ...remoteState,
+        storage: { ...(remoteState.storage as object), mode: "remote-demo" },
+        remote: { enabled: true, source: "demo.wofory.com" },
+      });
+    } catch (error) {
+      console.error("Remote state fallback:", error);
+    }
+  }
+
   const events = getAllEvents();
   const users = getAllUsers();
   const suggestions = getAllSuggestions();

@@ -3,6 +3,8 @@
 *.log
 *.err.log
 *.out.log
+.env.development.local
+.env*.private
 
 # Next.js
 .next/

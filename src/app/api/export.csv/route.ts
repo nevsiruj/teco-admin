@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { getAllEvents } from "@/lib/db";
+import { getRemoteEvents, isRemoteWoforyEnabled } from "@/lib/remote-wofory";
 
 export async function GET() {
-  const events = getAllEvents();
+  const events = isRemoteWoforyEnabled() ? await getRemoteEvents().catch(() => getAllEvents()) : getAllEvents();
   const headers = [
     "Fecha", "Nombre", "Telefono", "Tipo", "Categoria", "Monto", "Moneda",
     "EstadoPago", "EstadoEjecucion", "Lugar", "Descripcion", "OrigenCanal",

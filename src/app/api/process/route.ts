@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { interpretMessage, type LLMResult } from "@/lib/llm";
 import { getAllEvents, insertEvent, insertInteraction, type EconomicEvent } from "@/lib/db";
+import { isRemoteWoforyEnabled, proxyRemoteJson } from "@/lib/remote-wofory";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
+    if (isRemoteWoforyEnabled()) {
+      const bodyText = await req.text();
+      return proxyRemoteJson("/api/process", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: bodyText,
+      });
+    }
+
     const body = await req.json();
     const { workerName, workerPhone, message, sendViaTrii } = body as {
       workerName?: string;

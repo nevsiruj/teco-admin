@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
 import { getAllEvents, getInteractions } from "@/lib/db";
+import { getRemoteInteractions, isRemoteWoforyEnabled } from "@/lib/remote-wofory";
 
 export async function GET() {
+  if (isRemoteWoforyEnabled()) {
+    try {
+      return NextResponse.json(await getRemoteInteractions());
+    } catch (error) {
+      console.error("Remote interactions fallback:", error);
+    }
+  }
+
   const interactions = getInteractions();
   if (interactions.length > 0) return NextResponse.json(interactions);
 
