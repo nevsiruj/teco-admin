@@ -1,17 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
 import { interpretMessage, type LLMResult } from "@/lib/llm";
 import { getAllEvents, insertEvent, insertInteraction, getOwnerContext, type EconomicEvent } from "@/lib/db";
-import { isRemoteWoforyEnabled, proxyRemoteJson } from "@/lib/remote-wofory";
+import { getRemoteInteractions, isRemoteWoforyEnabled, proxyRemoteJson } from "@/lib/remote-wofory";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
     if (isRemoteWoforyEnabled()) {
-      const bodyText = await req.text();
+      const body = await req.json();
+      const remoteBody = await buildRemoteBodyWithConversationContext(body);
       const remoteResponse = await proxyRemoteJson("/api/process", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: bodyText,
+        body: JSON.stringify(remoteBody),
       });
       const payload = await remoteResponse.json().catch(() => null);
       if (!payload || typeof payload !== "object") return NextResponse.json(payload, { status: remoteResponse.status });
@@ -41,6 +42,8 @@ export async function POST(req: NextRequest) {
           ...payload,
           reply,
           tracking,
+          contextualMessageUsed: remoteBody.message !== body.message,
+          originalMessage: body.message,
           normalizedEvent: payload.normalizedEvent || payload.savedEvent || payload.events?.[0] || null,
           llmMode: payload.llmMode || payload.mode || payload.llm?.mode || "remote-demo",
           model: "LLM",
@@ -137,5 +140,58 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Process error:", err);
     return NextResponse.json({ error: "Error interno del servidor." }, { status: 500 });
+  }
+}
+
+function normalizePhone(value?: string) {
+  return String(value || "").replace(/\D/g, "");
+}
+
+function getInteractionInput(interaction: any) {
+  return interaction?.input || {
+    workerName: interaction?.worker_name || interaction?.workerName,
+    workerPhone: interaction?.worker_phone || interaction?.workerPhone,
+    message: interaction?.user_message || interaction?.message,
+  };
+}
+
+function looksLikeContinuation(message?: string) {
+  const text = String(message || "").trim().toLowerCase();
+  if (!text) return false;
+  return /^(parte\s*\d+|tamb[ié]n|adem[aá]s|y\s+|ahora\s+|despu[eé]s\s+)/i.test(text) ||
+    /\b(fue en|en barrio|zona|cobr[eé]|me pagaron|ya me pagaron|transferencia|efectivo|queda pendiente|pendiente de cobro|son\s+\d|por\s+\d|\$\s*\d)\b/i.test(text);
+}
+
+function hasIncompleteEconomicOutput(interaction: any) {
+  const output = interaction?.output || {};
+  const missing = Array.isArray(output.missingFields) ? output.missingFields : [];
+  return missing.length > 0 && !output.savedEventId && !(Array.isArray(output.savedEventIds) && output.savedEventIds.length);
+}
+
+async function buildRemoteBodyWithConversationContext(body: any) {
+  const message = String(body?.message || "");
+  const phone = normalizePhone(body?.workerPhone);
+  if (!phone || !looksLikeContinuation(message)) return body;
+
+  try {
+    const interactions = await getRemoteInteractions();
+    const recent = interactions
+      .map((interaction: any) => ({ interaction, input: getInteractionInput(interaction) }))
+      .filter(({ input }: any) => normalizePhone(input?.workerPhone) === phone && input?.message)
+      .filter(({ interaction }: any) => hasIncompleteEconomicOutput(interaction))
+      .slice(0, 3)
+      .reverse();
+
+    if (!recent.length) return body;
+
+    const parts = recent.map(({ input }: any) => String(input.message).trim()).filter(Boolean);
+    if (parts.includes(message.trim())) return body;
+
+    return {
+      ...body,
+      message: [...parts, message.trim()].join("\n"),
+    };
+  } catch {
+    return body;
   }
 }
