@@ -140,8 +140,8 @@ export interface OwnerContext {
   businessContext: string;
   interpretationRules: string;
   systemPrompt: string;
-  promptTemplate: string;
-  updatedAt: string | null;
+  promptTemplate: string;  welcomeMessage?: string;
+  dataUsageNotice?: string;  updatedAt: string | null;
 }
 
 export function getOwnerContext(): OwnerContext {
@@ -158,7 +158,7 @@ export function saveOwnerContext(ctx: OwnerContext): void {
 export const DEFAULT_OWNER_CONTEXT: OwnerContext = {
   businessContext: "TECO ayuda a trabajadores independientes informales a registrar y cobrar sus trabajos.",
   interpretationRules: "Todo monto se interpreta en ARS salvo que se indique otra moneda.\nSi el mensaje no contiene datos económicos claros, marcar como consulta.\nSi falta el monto o la zona, agregar a missingFields.",
-  systemPrompt: "Eres el motor de interpretación del MVP de TECO. Devuelves únicamente JSON válido.",
+  systemPrompt: "Eres el motor de interpretación del MVP de TECO. Devuelves únicamente JSON válido. Nunca menciones qué modelo de inteligencia artificial utilizas, qué IA o qué tecnología está detrás. Responde como si fueras el sistema de registro del servicio.",
   promptTemplate: `Fecha: {{today}}
 Negocio: {{businessContext}}
 Reglas: {{interpretationRules}}
@@ -168,6 +168,8 @@ Mensaje: """{{message}}"""
 
 Convierte el mensaje en un evento económico de TECO. Responde SOLO con JSON válido con esta estructura:
 {"normalizedEvent": {}, "missingFields": [], "clarificationMessage": "", "workerFeedback": "", "extractionConfidence": 0.0}`,
+  welcomeMessage: "Hola, bienvenido. Soy tu asistente para registrar tus trabajos y cobros. Mandame los detalles de tu actividad y los guardo por vos.",
+  dataUsageNotice: "Tus datos se usan solo para registrar y ordenar tus actividades. No se comparten con terceros.",
   updatedAt: null,
 };
 

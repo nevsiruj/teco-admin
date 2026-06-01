@@ -83,8 +83,12 @@ const defaultOwnerContext = {
     "Si el trabajador pregunta por su historial o estadisticas, responder con los registros guardados sin crear un evento nuevo.",
     "Mantener respuestas simples, claras y utiles para el trabajador.",
   ].join("\n"),
+  welcomeMessage:
+    "Hola, bienvenido. Soy tu asistente para registrar tus trabajos y cobros. Mandame los detalles de tu actividad y los guardo por vos.",
+  dataUsageNotice:
+    "Tus datos se usan solo para registrar y ordenar tus actividades. No se comparten con terceros.",
   systemPrompt:
-    "Eres el motor de interpretación del MVP de TECO. Devuelves únicamente JSON válido y sin markdown.",
+    "Eres el motor de interpretación del MVP de TECO. Devuelves únicamente JSON válido y sin markdown. Nunca menciones qué modelo de inteligencia artificial utilizas, qué IA o qué tecnología está detrás. Responde como si fueras el sistema de registro del servicio.",
   promptTemplate: `
 Fecha: {{today}}
 Negocio: {{businessContext}}
@@ -634,7 +638,7 @@ async function processIncomingMessage(body) {
   }
 
   if (shouldAskForFirstEconomicEvent(message)) {
-    const clarificationMessage = buildFirstEconomicEventPrompt({ workerName, registrationFlow });
+    const clarificationMessage = buildFirstEconomicEventPrompt({ workerName, registrationFlow, ownerContext });
     const responsePayload = {
       ok: true,
       requestId,
@@ -1404,6 +1408,8 @@ function normalizeOwnerContext(input) {
     interpretationRules: cleanNullable(input?.interpretationRules) || defaultOwnerContext.interpretationRules,
     systemPrompt: cleanNullable(input?.systemPrompt) || defaultOwnerContext.systemPrompt,
     promptTemplate: cleanNullable(input?.promptTemplate) || defaultOwnerContext.promptTemplate,
+    welcomeMessage: cleanNullable(input?.welcomeMessage) || defaultOwnerContext.welcomeMessage,
+    dataUsageNotice: cleanNullable(input?.dataUsageNotice) || defaultOwnerContext.dataUsageNotice,
     updatedAt: cleanNullable(input?.updatedAt),
   };
 }
@@ -1761,12 +1767,12 @@ function shouldAskForFirstEconomicEvent(message) {
   return onlyGreetingOrProbe || text.length < 12;
 }
 
-function buildFirstEconomicEventPrompt({ workerName, registrationFlow }) {
+function buildFirstEconomicEventPrompt({ workerName, registrationFlow, ownerContext }) {
   const name = firstName(workerName) || "genial";
-  const prefix = registrationFlow?.isNewUser
-    ? `Hola ${name}. Ya identifiqué este número para registrar tus movimientos. `
-    : `Hola ${name}. `;
-  return `${prefix}Para empezar, mandame el primer evento económico en una frase. Por ejemplo: "Hoy hice una plomería por 50000 y ya me pagaron" o "Vendí 3 productos por 120000 y queda pendiente de cobro".`;
+  const welcomeMsg = ownerContext?.welcomeMessage || `Hola ${name}. Ya identifiqué este número para registrar tus movimientos. `;
+  const dataNotice = ownerContext?.dataUsageNotice ? ` ${ownerContext.dataUsageNotice}` : "";
+  const prefix = registrationFlow?.isNewUser ? welcomeMsg.replace(/\.$/, ". ") : `Hola ${name}. `;
+  return `${prefix}${dataNotice}Para empezar, mandame el primer evento económico en una frase. Por ejemplo: "Hoy hice una plomería por 50000 y ya me pagaron" o "Vendí 3 productos por 120000 y queda pendiente de cobro".`;
 }
 
 function answerHistoryQuery({ message, workerName, workerEvents }) {

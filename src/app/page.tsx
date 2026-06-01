@@ -68,7 +68,7 @@ export default function Dashboard() {
   const [result, setResult] = useState<LLMResult | null>(null);
 
   // Context editing
-  const [ctxTab, setCtxTab] = useState<"business" | "rules" | "template">("business");
+  const [ctxTab, setCtxTab] = useState<"business" | "rules" | "welcome" | "dataprivacy" | "template">("business");
   const [ctxDraft, setCtxDraft] = useState("");
   const [savingCtx, setSavingCtx] = useState(false);
 
@@ -107,6 +107,8 @@ export default function Dashboard() {
     if (!state) return;
     if (ctxTab === "business") setCtxDraft(state.ownerContext.businessContext || "");
     else if (ctxTab === "rules") setCtxDraft(state.ownerContext.interpretationRules || "");
+    else if (ctxTab === "welcome") setCtxDraft(state.ownerContext.welcomeMessage || "");
+    else if (ctxTab === "dataprivacy") setCtxDraft(state.ownerContext.dataUsageNotice || "");
     else setCtxDraft(state.ownerContext.promptTemplate || "");
   }, [state, ctxTab]);
 
@@ -129,12 +131,13 @@ export default function Dashboard() {
   async function handleSaveContext() {
     setSavingCtx(true);
     try {
-      const key = ctxTab === "business" ? "businessContext" : ctxTab === "rules" ? "interpretationRules" : "promptTemplate";
+      const keyMap: Record<string, string> = { business: "businessContext", rules: "interpretationRules", welcome: "welcomeMessage", dataprivacy: "dataUsageNotice", template: "promptTemplate" };
+      const key = keyMap[ctxTab] || "promptTemplate";
       await fetch("/api/context", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [key]: ctxDraft }),
       });
-      showToast("success", "Contexto guardado ✅");
+      showToast("success", "Guardado ✅");
       loadState();
     } catch { showToast("error", "No se pudo guardar."); }
     finally { setSavingCtx(false); }
@@ -483,9 +486,9 @@ export default function Dashboard() {
           {activeTab === "comportamiento" && (
             <div className="space-y-6 animate-fade-up">
               <div className="bg-white rounded-2xl border border-brand-border shadow-sm p-7">
-                <div className="flex gap-1.5 mb-6 p-1 bg-brand-bg rounded-xl w-fit">
-                  {([["business", "💼 Contexto de negocio"], ["rules", "📏 Reglas de interpretación"], ["template", "📝 Plantilla LLM"]] as const).map(([key, label]) => (
-                    <button key={key} onClick={() => setCtxTab(key)} className={`px-5 py-2.5 rounded-lg text-sm font-semibold transition-all ${
+                <div className="flex gap-1.5 mb-6 p-1 bg-brand-bg rounded-xl w-fit flex-wrap">
+                  {([["business", "💼 Negocio"], ["rules", "📏 Reglas"], ["welcome", "👋 Bienvenida"], ["dataprivacy", "🔒 Datos"], ["template", "📝 Prompt"]] as const).map(([key, label]) => (
+                    <button key={key} onClick={() => setCtxTab(key)} className={`px-4 py-2.5 rounded-lg text-sm font-semibold transition-all ${
                       ctxTab === key
                         ? "bg-linear-to-r from-brand-green to-brand-green-light text-white shadow-sm"
                         : "text-brand-muted hover:text-brand-text hover:bg-white"
@@ -496,7 +499,10 @@ export default function Dashboard() {
                 </div>
                 <div className="grid 2xl:grid-cols-2 gap-6">
                   <div>
-                    <textarea value={ctxDraft} onChange={(e) => setCtxDraft(e.target.value)} rows={16} className="w-full px-4 py-3.5 rounded-xl border border-brand-border bg-brand-bg text-sm resize-y font-mono leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green transition" />
+                    <label className="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-2 block">
+                      {ctxTab === "business" ? "Descripción del negocio" : ctxTab === "rules" ? "Reglas de interpretación" : ctxTab === "welcome" ? "Mensaje de bienvenida (primera vez)" : ctxTab === "dataprivacy" ? "Aviso de privacidad de datos" : "Template del prompt"}
+                    </label>
+                    <textarea value={ctxDraft} onChange={(e) => setCtxDraft(e.target.value)} rows={ctxTab === "template" ? 16 : 6} className={`w-full px-4 py-3.5 rounded-xl border border-brand-border bg-brand-bg text-sm resize-y leading-relaxed focus:outline-none focus:ring-2 focus:ring-brand-green/40 focus:border-brand-green transition ${ctxTab === "template" ? "font-mono" : ""}`} />
                     <div className="flex items-center gap-3 mt-4">
                       <button onClick={handleSaveContext} disabled={savingCtx} className="px-6 py-2.5 rounded-xl bg-brand-green text-white font-semibold hover:bg-brand-green/90 active:scale-95 shadow-sm shadow-brand-green/25 transition-all disabled:opacity-40 disabled:cursor-not-allowed">
                         {savingCtx ? (
@@ -513,9 +519,11 @@ export default function Dashboard() {
                       <span className="w-7 h-7 rounded-lg bg-brand-orange/10 flex items-center justify-center text-sm">💡</span>
                       Tips
                     </h4>
-                    <p><span className="font-semibold text-brand-text">Contexto de negocio:</span> Descripción general del negocio, locales, categorías.</p>
-                    <p><span className="font-semibold text-brand-text">Reglas de interpretación:</span> Cómo interpretar categorías, rangos de montos, etc.</p>
-                    <p><span className="font-semibold text-brand-text">Plantilla LLM:</span> Template enviado al LLM con variables.</p>
+                    <p><span className="font-semibold text-brand-text">Negocio:</span> Descripción general del negocio.</p>
+                    <p><span className="font-semibold text-brand-text">Reglas:</span> Cómo interpretar categorías y montos.</p>
+                    <p><span className="font-semibold text-brand-text">Bienvenida:</span> Mensaje que recibe el trabajador al contactar por primera vez.</p>
+                    <p><span className="font-semibold text-brand-text">Datos:</span> Aviso sobre uso de datos que se incluye en la bienvenida.</p>
+                    <p><span className="font-semibold text-brand-text">Prompt:</span> Template enviado al modelo con variables.</p>
                   </div>
                 </div>
               </div>

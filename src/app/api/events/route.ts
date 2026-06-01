@@ -19,6 +19,13 @@ export async function GET() {
 }
 
 export async function DELETE() {
+  if (isRemoteWoforyEnabled()) {
+    return NextResponse.json(
+      { ok: false, error: "Acción bloqueada por seguridad: no se vacían eventos remotos desde este panel." },
+      { status: 403 }
+    );
+  }
+
   deleteAllEvents();
   return NextResponse.json({ ok: true, events: [], metrics: computeMetrics([]) });
 }
