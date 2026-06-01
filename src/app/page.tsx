@@ -170,14 +170,16 @@ export default function Dashboard() {
     loadState();
   }
   async function handleDeleteEvent(id: string) {
-    await fetch(`/api/events/${id}`, { method: "DELETE" });
-    showToast("info", "Evento eliminado");
+    const res = await fetch(`/api/events/${id}`, { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    showToast(res.ok ? "info" : "error", res.ok ? "Evento eliminado" : data.error || "Acción bloqueada por seguridad.");
     loadState();
   }
   async function handleClearEvents() {
     if (!confirm("¿Eliminar TODOS los eventos?")) return;
-    await fetch("/api/events", { method: "DELETE" });
-    showToast("info", "Todos los eventos eliminados");
+    const res = await fetch("/api/events", { method: "DELETE" });
+    const data = await res.json().catch(() => ({}));
+    showToast(res.ok ? "info" : "error", res.ok ? "Todos los eventos eliminados" : data.error || "Acción bloqueada por seguridad.");
     loadState();
   }
   async function handleExportCSV() {
@@ -202,8 +204,9 @@ export default function Dashboard() {
   }
 
   async function handleMarkCollected(id: string) {
-    await fetch(`/api/events/${id}/collect`, { method: "POST" });
-    showToast("success", "Evento marcado como cobrado ✅");
+    const res = await fetch(`/api/events/${id}/collect`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    showToast(res.ok ? "success" : "error", res.ok ? "Evento marcado como cobrado ✅" : data.error || "Acción bloqueada por seguridad.");
     loadState();
   }
 
@@ -334,6 +337,20 @@ export default function Dashboard() {
         </header>
 
         <div className="p-8 max-w-6xl mx-auto space-y-8">
+          {state.remote?.enabled && (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-5 py-4 text-sm text-emerald-900 shadow-sm">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 inline-flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-xs font-bold text-white">✓</span>
+                <div>
+                  <p className="font-bold">Modo seguro conectado a demo</p>
+                  <p className="mt-0.5 text-emerald-800">
+                    Este panel lee los datos reales de demo. Las acciones destructivas o cambios directos sobre eventos remotos están bloqueados por seguridad.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ═══ RESUMEN ═══ */}
           {activeTab === "resumen" && (
             <div className="space-y-6 animate-fade-up">
@@ -803,23 +820,33 @@ function ConversationsSection() {
 
   return (
     <div className="space-y-4 animate-fade-up">
-      {interactions.slice(0, 20).map((ix: any, i: number) => (
-        <div key={i} className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 hover:shadow-md transition-shadow">
-          <div className="flex items-start justify-between mb-3">
-            <div className="flex-1">
-              <p className="text-sm font-medium text-brand-text leading-relaxed">{ix.user_message || ix.message || "—"}</p>
-              <p className="text-xs text-brand-muted mt-2"><span className="font-semibold text-brand-green-dark">{ix.worker_name || "—"}</span> · {fmtDate(ix.created_at)}</p>
+      {interactions.slice(0, 20).map((ix: any, i: number) => {
+        const input = ix.input || {};
+        const output = ix.output || {};
+        const userMessage = ix.user_message || ix.message || input.message || "—";
+        const workerName = ix.worker_name || ix.workerName || input.workerName || "—";
+        const createdAt = ix.created_at || ix.createdAt || ix.timestamp || ix.receivedAt;
+        const modelLabel = ix.llm_model || ix.source || ix.reasoning?.llm?.model || ix.reasoning?.llm?.provider || "—";
+        const reply = ix.llm_reply || ix.reply || output.workerFeedback || output.clarificationMessage || "";
+
+        return (
+          <div key={ix.requestId || ix.id || i} className="bg-white rounded-2xl border border-brand-border shadow-sm p-6 hover:shadow-md transition-shadow">
+            <div className="flex items-start justify-between mb-3">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-brand-text leading-relaxed">{userMessage}</p>
+                <p className="text-xs text-brand-muted mt-2"><span className="font-semibold text-brand-green-dark">{workerName}</span> · {fmtDate(createdAt)}</p>
+              </div>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-bg text-brand-muted text-xs font-medium ml-3 flex-shrink-0">🤖 {modelLabel}</span>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-brand-bg text-brand-muted text-xs font-medium ml-3 flex-shrink-0">🤖 {ix.llm_model || ix.source || "—"}</span>
+            {reply && (
+              <div className="mt-3 p-4 rounded-xl bg-brand-bg border border-brand-border/40">
+                <p className="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-2">Respuesta</p>
+                <p className="text-sm text-brand-text leading-relaxed">{reply}</p>
+              </div>
+            )}
           </div>
-          {ix.llm_reply && (
-            <div className="mt-3 p-4 rounded-xl bg-brand-bg border border-brand-border/40">
-              <p className="text-xs font-semibold text-brand-muted uppercase tracking-wider mb-2">Respuesta</p>
-              <p className="text-sm text-brand-text leading-relaxed">{ix.llm_reply}</p>
-            </div>
-          )}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
