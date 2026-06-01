@@ -545,8 +545,15 @@ async function processIncomingMessage(body) {
     }
   }
 
-  const historyQuery = answerHistoryQuery({
+  const conversationContext = await buildMessageWithConversationContext({
+    source,
+    workerPhone,
     message,
+  });
+  const effectiveMessage = conversationContext.message;
+
+  const historyQuery = answerHistoryQuery({
+    message: effectiveMessage,
     workerName,
     workerPhone,
     workerEvents: workerEventsBefore,
@@ -604,6 +611,8 @@ async function processIncomingMessage(body) {
         workerName,
         workerPhone,
         message,
+        effectiveMessage,
+        conversationContext,
         sendViaTriiRequested,
         externalMessageId,
       },
@@ -637,7 +646,7 @@ async function processIncomingMessage(body) {
     return responsePayload;
   }
 
-  if (shouldAskForFirstEconomicEvent(message)) {
+  if (shouldAskForFirstEconomicEvent(effectiveMessage)) {
     const clarificationMessage = buildFirstEconomicEventPrompt({ workerName, registrationFlow, ownerContext });
     const responsePayload = {
       ok: true,
@@ -653,7 +662,7 @@ async function processIncomingMessage(body) {
       normalizedEvent: sanitizeNormalizedEvent({
         workerName,
         workerPhone,
-        sourceMessage: message,
+        sourceMessage: effectiveMessage,
       }),
       normalizedEvents: [],
       normalizedWork: null,
@@ -692,6 +701,8 @@ async function processIncomingMessage(body) {
         workerName,
         workerPhone,
         message,
+        effectiveMessage,
+        conversationContext,
         sendViaTriiRequested,
         externalMessageId,
       },
@@ -723,18 +734,18 @@ async function processIncomingMessage(body) {
     return responsePayload;
   }
 
-  const analysis = await interpretMessage({ message, workerName, workerPhone, workerHistory });
+  const analysis = await interpretMessage({ message: effectiveMessage, workerName, workerPhone, workerHistory });
   const normalizedEvent = sanitizeNormalizedEvent(
     enrichOwnerObservationFields(
       enrichEventIdentity(analysis.normalizedEvent || analysis.normalizedWork || {}, {
         workerName,
         workerPhone,
       }),
-      message
+      effectiveMessage
     )
   );
   const normalizedEvents = buildNormalizedEventsFromMessage({
-    message,
+    message: effectiveMessage,
     baseEvent: normalizedEvent,
     workerName,
     workerPhone,
@@ -772,7 +783,7 @@ async function processIncomingMessage(body) {
     });
   }
   const contextLearningSuggestion = await suggestContextLearning({
-    message,
+    message: effectiveMessage,
     normalizedEvent,
     analysis,
     ownerContext,
@@ -782,7 +793,7 @@ async function processIncomingMessage(body) {
     await saveLearningSuggestion(contextLearningSuggestion, {
       workerName,
       workerPhone,
-      sourceMessage: message,
+      sourceMessage: effectiveMessage,
     });
   }
 
@@ -845,6 +856,8 @@ async function processIncomingMessage(body) {
       workerName,
       workerPhone,
       message,
+      effectiveMessage,
+      conversationContext,
       sendViaTriiRequested,
       externalMessageId,
     },
@@ -3505,6 +3518,82 @@ function isWebhookSource(source) {
   return ["meta-webhook", "trii-webhook"].includes(cleanNullable(source));
 }
 
+function getInteractionInput(interaction) {
+  return interaction?.input || {
+    workerName: interaction?.worker_name || interaction?.workerName,
+    workerPhone: interaction?.worker_phone || interaction?.workerPhone,
+    message: interaction?.user_message || interaction?.message,
+  };
+}
+
+function hasIncompleteEconomicOutput(interaction) {
+  const output = interaction?.output || {};
+  const missing = Array.isArray(output.missingFields) ? output.missingFields : [];
+  const savedIds = Array.isArray(output.savedEventIds) ? output.savedEventIds : [];
+  return missing.length > 0 && !output.savedEventId && savedIds.length === 0 && !output.historyQuery;
+}
+
+function looksLikeConversationContinuation(message) {
+  const text = String(message || "").trim();
+  if (!text) return false;
+  return (
+    /^(parte\s*\d+|tamb[ié]n|adem[aá]s|y\s+|ahora\s+|despu[eé]s\s+)/i.test(text) ||
+    /\b(fue en|en barrio|zona|cobr[eé]|cobr[oó]|me pagaron|ya me pagaron|transferencia|efectivo|mercado\s*pago|queda pendiente|pendiente de cobro|son\s+\d|por\s+\d|\$\s*\d|\d+\s*(todo|pesos|ars))\b/i.test(text)
+  );
+}
+
+async function buildMessageWithConversationContext({ source, workerPhone, message }) {
+  const originalMessage = String(message || "").trim();
+  const phone = normalizePhone(workerPhone);
+  const shouldUseContext = isWebhookSource(source) || looksLikeConversationContinuation(originalMessage);
+
+  if (!phone || !originalMessage || !shouldUseContext || !looksLikeConversationContinuation(originalMessage)) {
+    return {
+      message: originalMessage,
+      used: false,
+      previousMessages: [],
+    };
+  }
+
+  const interactions = await readInteractions({ limit: 40, phone });
+  const recentIncomplete = interactions
+    .map((interaction) => ({ interaction, input: getInteractionInput(interaction) }))
+    .filter(({ input }) => normalizePhone(input?.workerPhone) === phone && cleanNullable(input?.message))
+    .filter(({ interaction }) => hasIncompleteEconomicOutput(interaction))
+    .slice(0, 3)
+    .reverse();
+
+  if (!recentIncomplete.length) {
+    return {
+      message: originalMessage,
+      used: false,
+      previousMessages: [],
+    };
+  }
+
+  const previousMessages = recentIncomplete
+    .map(({ input }) => cleanNullable(input.message))
+    .filter(Boolean);
+  const parts = previousMessages
+    .flatMap((part) => String(part).split(/\n+/))
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const uniqueParts = Array.from(new Set(parts));
+  if (uniqueParts.includes(originalMessage)) {
+    return {
+      message: originalMessage,
+      used: false,
+      previousMessages,
+    };
+  }
+
+  return {
+    message: [...uniqueParts, originalMessage].join("\n"),
+    used: true,
+    previousMessages,
+  };
+}
+
 function buildIncomingMessageFingerprint(message) {
   const key = normalizeTextKey(message)
     .replace(/\b(lunes|martes|miercoles|miércoles|jueves|viernes|sabado|sábado|domingo)\b/g, " ")
@@ -3657,6 +3746,7 @@ function parseAmount(message) {
       new RegExp(String.raw`(?:cobr[ée]|cobramos|por|monto|precio|pag[oó]|pagaron|me pagaron|vend[ií].*?por|sale|cotiz\w*|presupuest\w*|adelantaron|pas[eé])\s*(?:de\s*)?(${moneyToken})`, "i")
     ) ||
     message.match(new RegExp(String.raw`(${moneyToken})\s*(?:pesos|ars|mil|lucas|k)\b`, "i")) ||
+    message.match(new RegExp(String.raw`(?:^|\n|\b)(${moneyToken})\s*(?:todo|total)\b`, "i")) ||
     message.match(new RegExp(String.raw`(\$\s*(?:\d{1,3}(?:[.,\s]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,3})?))`, "i"));
   if (!explicitMoneyMatch) return null;
   return parseMoneyValue(explicitMoneyMatch[1])?.amount ?? null;
@@ -3668,6 +3758,7 @@ function parseMoneyInfo(message) {
     String(message || "").match(
       new RegExp(String.raw`(?:cobr[ée]|cobramos|por|monto|precio|pag[oó]|pagaron|me pagaron|vend[ií].*?por|sale|cotiz\w*|presupuest\w*|adelantaron|pas[eé])\s*(?:de\s*)?(${moneyToken})`, "i")
     ) ||
+    String(message || "").match(new RegExp(String.raw`(?:^|\n|\b)(${moneyToken})\s*(?:todo|total)\b`, "i")) ||
     String(message || "").match(new RegExp(String.raw`(\$\s*(?:\d{1,3}(?:[.,\s]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,3})?))`, "i"));
   if (!match) return null;
   return parseMoneyValue(match[1]);
@@ -3798,6 +3889,7 @@ function parseEconomicKind(message) {
 function parseEconomicLabel(message, economicKind, derivedCategory) {
   const patterns = [
     /(?:cotic[eé]|cotiz[oó]|presupuest[eé]|pas[eé]\s+presupuesto)\s+(.*?)(?:,|\.| por| y|$)/i,
+    /(?:venta\s+de)\s+(.*?)(?:,?\s+\d+\s*(?:botellas?|unidades?|u\.?)|,|\.| por\s+\d| y cobré| y me pagaron|\n|$)/i,
     /(?:vend[ií]|vendo|vendimos|entregu[eé]|cerr[eé])\s+(.*?)(?:,|\.| por\s+\d| y cobré| y me pagaron|$)/i,
     /(?:hice|realic[eé]|arregl[eé]|cambi[eé]|instal[eé]|pint[eé]|limpi[eé]|prest[eé])\s+(.*?)(?:,|\.| por\s+\$?\d| y cobré| y me pagaron|$)/i,
     /(?:levantando|levant[eé])\s+(.*?)(?:,|\.| cobr[eé]|$)/i,
@@ -4618,4 +4710,3 @@ async function readBodyText(req) {
   }
   return Buffer.concat(chunks).toString("utf8");
 }
-
