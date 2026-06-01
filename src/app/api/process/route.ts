@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { interpretMessage, type LLMResult } from "@/lib/llm";
-import { getAllEvents, insertEvent, insertInteraction, type EconomicEvent } from "@/lib/db";
+import { getAllEvents, insertEvent, insertInteraction, getOwnerContext, type EconomicEvent } from "@/lib/db";
 import { isRemoteWoforyEnabled, proxyRemoteJson } from "@/lib/remote-wofory";
 import crypto from "crypto";
 
@@ -75,8 +75,28 @@ export async function POST(req: NextRequest) {
       pendingCollectionEvents: workerPending.reduce((s, e) => s + (Number(e.amount) || 0), 0),
     };
 
+    // Detect if this is a greeting-only message with no economic content
+    const isGreeting = !event.economicKind && !event.amount && !event.paymentStatus;
+    const isNewUser = !events.some(
+      (e) => (e.workerPhone && e.workerPhone === workerPhone) || (e.workerName && e.workerName === workerName)
+    );
+
+    // Prepend welcome message for new users
+    let reply = result.workerFeedback || result.clarificationMessage || "";
+    if (isGreeting && isNewUser) {
+      const ctx = getOwnerContext();
+      const welcome = ctx.welcomeMessage || "";
+      const dataNotice = ctx.dataUsageNotice ? ` ${ctx.dataUsageNotice}` : "";
+      reply = `${welcome}${dataNotice}`.trim();
+      if (isGreeting && !result.workerFeedback) {
+        // Also ask first economic event prompt
+        reply += " Para empezar, mandame el primer evento económico en una frase.";
+      }
+    }
+
     return NextResponse.json({
       ...result,
+      reply,
       tracking,
       llmMode: process.env.MIMO_API_KEY ? "live" : "heuristic-fallback",
     });

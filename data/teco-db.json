@@ -113,6 +113,44 @@
       "source": "llm",
       "sourceMessage": "cobré 18000 pesos por un service en Palermo, pagó en efectivo",
       "createdAt": "2026-05-31T00:30:53.063Z"
+    },
+    {
+      "id": "4a52eca1-48b5-4517-a103-5702a090f466",
+      "workerName": "Martín",
+      "workerPhone": "2233445566",
+      "economicLabel": null,
+      "economicKind": "servicio",
+      "executionStatus": "realizado",
+      "paymentStatus": "cobrado",
+      "derivedCategory": null,
+      "category": null,
+      "amount": 15000,
+      "currency": "ARS",
+      "date": "2026-06-01",
+      "broadArea": null,
+      "evidenceType": null,
+      "commercialStatus": null,
+      "quotedAmount": null,
+      "startDate": null,
+      "endDate": null,
+      "estimatedDuration": null,
+      "collaborators": [],
+      "splitRule": null,
+      "netIncome": null,
+      "quantity": null,
+      "unit": null,
+      "grossAmount": null,
+      "costAmount": null,
+      "costDescription": null,
+      "deductionAmount": null,
+      "deductionDescription": null,
+      "location": "Palermo",
+      "description": "service",
+      "pgOrExternalRef": null,
+      "originChannel": "web",
+      "source": "llm",
+      "sourceMessage": "Cobré 15000 pesos por un service en Palermo",
+      "createdAt": "2026-06-01T13:47:21.586Z"
     }
   ],
   "users": [],
@@ -121,8 +159,66 @@
     "interpretationRules": "Todo monto se interpreta en ARS salvo que se indique otra moneda.\nSi el mensaje no contiene datos económicos claros, marcar como consulta.\nSi falta el monto o la zona, agregar a missingFields.",
     "systemPrompt": "Eres el motor de interpretación del MVP de TECO. Devuelves únicamente JSON válido.",
     "promptTemplate": "Fecha: {{today}}\nNegocio: {{businessContext}}\nReglas: {{interpretationRules}}\nTrabajador: {{workerName}} | {{workerPhone}}\nHistorial del trabajador: {{workerHistory}}\nMensaje: \"\"\"{{message}}\"\"\"\n\nConvierte el mensaje en un evento económico de TECO. Responde SOLO con JSON válido con esta estructura:\n{\"normalizedEvent\": {}, \"missingFields\": [], \"clarificationMessage\": \"\", \"workerFeedback\": \"\", \"extractionConfidence\": 0.0}",
-    "updatedAt": "2026-05-30T14:13:36.592Z"
+    "welcomeMessage": "Hola, bienvenido. Soy tu asistente para registrar tus trabajos y cobros. Mandame los detalles de tu actividad y los guardo por vos.",
+    "dataUsageNotice": "Tus datos se usan solo para registrar y ordenar tus actividades. No se comparten con terceros.",
+    "updatedAt": "2026-06-01T13:12:34.743Z"
   },
-  "interactions": [],
+  "interactions": [
+    {
+      "id": "5283f9ed-bbd0-4852-a997-7f6b35f56f99",
+      "event_id": "834b6240-2d48-470f-a716-d188c415e47b",
+      "worker_name": "Juan",
+      "worker_phone": "2233445566",
+      "user_message": "Hola",
+      "llm_reply": "Basado en tu historial, tenés 2 servicios cobrados por $18.000 y $35.000. Si querés registrar algo nuevo, decime los detalles.",
+      "llm_model": "mimo-v2.5-pro",
+      "source": "web",
+      "created_at": "2026-06-01T13:44:25.086Z"
+    },
+    {
+      "id": "1a38abbb-a9fd-4bbc-b1f7-b5bc6f2d64a0",
+      "event_id": "d93fc76d-9d88-48e3-9945-f0c21be41961",
+      "worker_name": "Martín",
+      "worker_phone": "2233445566",
+      "user_message": "Hola, todo bien?",
+      "llm_reply": "Saludos, Martín. Para ayudarte a registrar un evento económico, por favor indica el tipo (venta, cobro, servicio, gasto), el monto en ARS y, si aplica, la zona.",
+      "llm_model": "mimo-v2.5-pro",
+      "source": "web",
+      "created_at": "2026-06-01T13:45:35.818Z"
+    },
+    {
+      "id": "395f96a3-db54-4eb1-9043-7c73b4a88dd9",
+      "event_id": "a3eb8e1e-1c9a-4ca3-9844-ffd5e9d4c616",
+      "worker_name": "Martín",
+      "worker_phone": "2233445566",
+      "user_message": "Hola, todo bien?",
+      "llm_reply": "",
+      "llm_model": "mimo-v2.5-pro",
+      "source": "web",
+      "created_at": "2026-06-01T13:46:57.983Z"
+    },
+    {
+      "id": "2f55ee39-c190-4db9-81af-51db2615b9e2",
+      "event_id": "4a52eca1-48b5-4517-a103-5702a090f466",
+      "worker_name": "Martín",
+      "worker_phone": "2233445566",
+      "user_message": "Cobré 15000 pesos por un service en Palermo",
+      "llm_reply": "Registré tu cobro de $15.000 ARS por el service en Palermo.",
+      "llm_model": "mimo-v2.5-pro",
+      "source": "web",
+      "created_at": "2026-06-01T13:47:21.590Z"
+    },
+    {
+      "id": "8f7095e7-9e99-44a3-ae79-0f7121bce1da",
+      "event_id": "da9d13cd-b2f9-4316-9866-28720913f2cb",
+      "worker_name": "Martín",
+      "worker_phone": "2233445566",
+      "user_message": "Qué modelo de inteligencia artificial usás?",
+      "llm_reply": "Esta consulta no genera un registro económico. ¿Necesitas registrar algo?",
+      "llm_model": "mimo-v2.5-pro",
+      "source": "web",
+      "created_at": "2026-06-01T13:47:43.178Z"
+    }
+  ],
   "suggestions": []
 }

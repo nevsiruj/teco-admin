@@ -36,6 +36,9 @@ export async function GET() {
       configured: Boolean(process.env.TRII_TOKEN || process.env.TRII_API_KEY),
       endpoint: process.env.TRII_ENDPOINT || "",
     },
+    meta: {
+      configured: Boolean(process.env.META_ACCESS_TOKEN || process.env.META_PHONE_NUMBER_ID),
+    },
     storage: { mode: "sqlite" },
   });
 }

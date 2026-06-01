@@ -145,7 +145,16 @@ export interface OwnerContext {
 }
 
 export function getOwnerContext(): OwnerContext {
-  return load().ownerContext;
+  const ctx = load().ownerContext && typeof load().ownerContext === "object" ? { ...load().ownerContext } : {};
+  return {
+    businessContext: ctx.businessContext || DEFAULT_OWNER_CONTEXT.businessContext || "",
+    interpretationRules: ctx.interpretationRules || DEFAULT_OWNER_CONTEXT.interpretationRules || "",
+    systemPrompt: ctx.systemPrompt || DEFAULT_OWNER_CONTEXT.systemPrompt || "",
+    promptTemplate: ctx.promptTemplate || DEFAULT_OWNER_CONTEXT.promptTemplate || "",
+    welcomeMessage: ctx.welcomeMessage || DEFAULT_OWNER_CONTEXT.welcomeMessage || "",
+    dataUsageNotice: ctx.dataUsageNotice || DEFAULT_OWNER_CONTEXT.dataUsageNotice || "",
+    updatedAt: ctx.updatedAt || null,
+  };
 }
 
 export function saveOwnerContext(ctx: OwnerContext): void {

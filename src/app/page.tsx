@@ -17,6 +17,7 @@ interface OwnerContext { systemPrompt?: string; promptTemplate?: string; busines
 interface AppState {
   events: EconomicEvent[]; users: User[]; suggestions: Suggestion[]; ownerContext: OwnerContext;
   metrics: Metrics; llm: { mode: string; provider?: string }; trii: { configured: boolean; endpoint?: string };
+  meta?: { configured: boolean };
   storage: { mode: string };
   remote?: { enabled: boolean; source?: string };
 }
@@ -744,6 +745,7 @@ export default function Dashboard() {
             <div className="space-y-6 animate-fade-up">
               <div className="grid md:grid-cols-2 gap-5">
                 {[
+                  { name: "Meta API Business", status: state.meta?.configured, detail: state.meta?.configured ? "Conectado" : "No configurado", icon: "📱" },
                   { name: "Almacenamiento", status: true, detail: state.remote?.enabled ? "Base remota demo" : "Archivo local", icon: "💾" },
                 ].map((sys) => (
                   <div key={sys.name} className={`p-6 rounded-2xl bg-white border shadow-sm ${sys.status ? "border-green-200" : "border-brand-border"}`}>
