@@ -18,6 +18,7 @@ interface AppState {
   events: EconomicEvent[]; users: User[]; suggestions: Suggestion[]; ownerContext: OwnerContext;
   metrics: Metrics; llm: { mode: string; provider?: string }; trii: { configured: boolean; endpoint?: string };
   storage: { mode: string };
+  remote?: { enabled: boolean; source?: string };
 }
 interface LLMResult {
   summary?: string; reply?: string; model?: string; provider?: string;
@@ -735,8 +736,7 @@ export default function Dashboard() {
             <div className="space-y-6 animate-fade-up">
               <div className="grid md:grid-cols-2 gap-5">
                 {[
-                  { name: "Trii", status: state.trii.configured, detail: state.trii.configured ? "Conectado" : "No configurado", icon: "📱" },
-                  { name: "Almacenamiento", status: true, detail: "Archivo local", icon: "💾" },
+                  { name: "Almacenamiento", status: true, detail: state.remote?.enabled ? "Base remota demo" : "Archivo local", icon: "💾" },
                 ].map((sys) => (
                   <div key={sys.name} className={`p-6 rounded-2xl bg-white border shadow-sm ${sys.status ? "border-green-200" : "border-brand-border"}`}>
                     <div className="flex items-center justify-between mb-3">
