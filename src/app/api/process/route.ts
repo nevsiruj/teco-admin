@@ -184,12 +184,16 @@ async function buildRemoteBodyWithConversationContext(body: any) {
 
     if (!recent.length) return body;
 
-    const parts = recent.map(({ input }: any) => String(input.message).trim()).filter(Boolean);
-    if (parts.includes(message.trim())) return body;
+    const parts = recent
+      .flatMap(({ input }: any) => String(input.message).split(/\n+/))
+      .map((part: string) => part.trim())
+      .filter(Boolean);
+    const uniqueParts = Array.from(new Set(parts));
+    if (uniqueParts.includes(message.trim())) return body;
 
     return {
       ...body,
-      message: [...parts, message.trim()].join("\n"),
+      message: [...uniqueParts, message.trim()].join("\n"),
     };
   } catch {
     return body;
