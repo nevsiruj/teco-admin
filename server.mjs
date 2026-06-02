@@ -17,6 +17,7 @@ const worksFile = path.join(__dirname, "works.json");
 const usersFile = path.join(__dirname, "users.json");
 const ownerContextFile = path.join(__dirname, "owner-context.json");
 const learningSuggestionsFile = path.join(__dirname, "learning-suggestions.json");
+const conversationDraftsFile = path.join(__dirname, "conversation-drafts.json");
 const logsDir = process.env.LOGS_DIR
   ? path.resolve(process.env.LOGS_DIR)
   : path.join(__dirname, "logs");
@@ -60,6 +61,7 @@ const envConfig = {
   webhookDuplicateContentWindowMinutes: Number(
     process.env.WEBHOOK_DUPLICATE_CONTENT_WINDOW_MINUTES || 3
   ),
+  conversationDraftTtlMinutes: Number(process.env.CONVERSATION_DRAFT_TTL_MINUTES || 90),
   metaGraphVersion: process.env.META_GRAPH_VERSION || "v22.0",
   metaAccessToken: process.env.META_ACCESS_TOKEN || "",
   metaPhoneNumberId: process.env.META_PHONE_NUMBER_ID || "",
@@ -180,6 +182,7 @@ await ensureWorksFile();
 await ensureUsersFile();
 await ensureOwnerContextFile();
 await ensureLearningSuggestionsFile();
+await ensureConversationDraftsFile();
 await ensureLogsDir();
 await ensureSqliteStorage();
 
@@ -521,6 +524,103 @@ async function processIncomingMessage(body) {
   const eventsBefore = await readEvents();
   const workerEventsBefore = filterEventsForWorker(eventsBefore, { workerName, workerPhone });
   const workerHistory = buildWorkerHistoryPrompt(workerEventsBefore);
+  const activeDraft = isWebhookSource(source)
+    ? await readConversationDraft({ workerPhone, source })
+    : null;
+
+  if (activeDraft?.status === "pending_confirmation") {
+    if (isConfirmationMessage(message)) {
+      const draftEvents = (activeDraft.normalizedEvents || []).map((event) =>
+        sanitizeNormalizedEvent(event)
+      );
+      const savedEvents = await saveEvents(draftEvents);
+      const events = await readEvents();
+      const metrics = buildMetricsFromEvents(events);
+      await closeConversationDraft(activeDraft, "confirmed");
+      const savedEvent = savedEvents[0] || null;
+      const responseText = buildConfirmedDraftFeedback({
+        events: savedEvents,
+        workerName,
+        previousEvents: workerEventsBefore,
+      });
+      const triiDelivery = sendViaTriiRequested && workerPhone
+        ? await sendViaTrii({ phone: workerPhone, text: responseText, context: "draft-confirmed" })
+        : null;
+      const responsePayload = {
+        ok: true,
+        requestId,
+        llm: { provider: "deterministic", configured: true, mode: "draft-confirmation" },
+        trii: { ...buildTriiStatus() },
+        normalizedEvent: savedEvent,
+        normalizedEvents: savedEvents,
+        normalizedWork: savedEvent,
+        userProfile,
+        registrationFlow,
+        tracking: savedEvent ? buildWorkerTracking({ normalizedEvent: savedEvent, previousEvents: workerEventsBefore }) : null,
+        missingFields: [],
+        isComplete: true,
+        extractionConfidence: 1,
+        clarificationMessage: null,
+        workerFeedback: responseText,
+        savedEvent,
+        savedEvents,
+        savedWork: savedEvent,
+        events,
+        works: events,
+        metrics,
+        triiDelivery,
+        contextLearningSuggestion: null,
+        conversationDraft: { id: activeDraft.id, status: "confirmed" },
+      };
+      await logInteraction({
+        timestamp: new Date().toISOString(),
+        requestId,
+        receivedAt,
+        source,
+        input: { workerName, workerPhone, message, sendViaTriiRequested, externalMessageId },
+        reasoning: { llm: responsePayload.llm, reasoningTrace: { mode: "draft-confirmation" } },
+        output: {
+          ok: true,
+          isComplete: true,
+          missingFields: [],
+          extractionConfidence: 1,
+          normalizedEvent: savedEvent,
+          normalizedEvents: savedEvents,
+          clarificationMessage: null,
+          workerFeedback: responseText,
+          savedEventId: savedEvent?.id || null,
+          savedEventIds: savedEvents.map((event) => event.id),
+          triiDelivery,
+          registrationFlow,
+          conversationDraft: responsePayload.conversationDraft,
+        },
+      });
+      return responsePayload;
+    }
+
+    if (isRejectionMessage(message)) {
+      await closeConversationDraft(activeDraft, "rejected");
+      const responseText = "Perfecto, no lo registro. Cuando quieras, mandame el evento corregido.";
+      const triiDelivery = sendViaTriiRequested && workerPhone
+        ? await sendViaTrii({ phone: workerPhone, text: responseText, context: "draft-rejected" })
+        : null;
+      return {
+        ok: true,
+        requestId,
+        isComplete: false,
+        missingFields: [],
+        clarificationMessage: null,
+        workerFeedback: responseText,
+        savedEvent: null,
+        savedEvents: [],
+        events: eventsBefore,
+        works: eventsBefore,
+        metrics: buildMetricsFromEvents(eventsBefore),
+        triiDelivery,
+        conversationDraft: { id: activeDraft.id, status: "rejected" },
+      };
+    }
+  }
 
   if (isWebhookSource(source) && workerPhone) {
     const recentSimilarEvent = findRecentSimilarSavedEvent({
@@ -547,7 +647,11 @@ async function processIncomingMessage(body) {
     workerPhone,
     message,
   });
-  const effectiveMessage = conversationContext.message;
+  const effectiveMessage = buildEffectiveMessageWithDraft({
+    draft: activeDraft?.status === "open" ? activeDraft : null,
+    conversationMessage: conversationContext.message,
+    currentMessage: message,
+  });
 
   const historyQuery = answerHistoryQuery({
     message: effectiveMessage,
@@ -799,15 +903,77 @@ async function processIncomingMessage(body) {
   let events = eventsBefore;
   let metrics = buildMetricsFromEvents(events);
   let triiDelivery = null;
+  let conversationDraft = null;
+  const shouldHoldForMoreInfo =
+    isWebhookSource(source) &&
+    workerPhone &&
+    !analysis.isComplete &&
+    shouldWaitForMoreInfo(message);
+  const shouldConfirmBeforeSave =
+    isWebhookSource(source) &&
+    workerPhone &&
+    analysis.isComplete &&
+    (Boolean(activeDraft) || conversationContext.used || effectiveMessage.includes("\n"));
 
-  if (analysis.isComplete) {
+  if (shouldHoldForMoreInfo) {
+    conversationDraft = await saveConversationDraft({
+      id: activeDraft?.id,
+      workerPhone,
+      workerName,
+      source,
+      status: "open",
+      messages: mergeDraftMessages(activeDraft, effectiveMessage),
+      normalizedEvent,
+      normalizedEvents,
+      missingFields: analysis.missingFields,
+      lastMessage: message,
+    });
+    analysis.workerFeedback = null;
+    analysis.clarificationMessage = null;
+  } else if (shouldConfirmBeforeSave) {
+    conversationDraft = await saveConversationDraft({
+      id: activeDraft?.id,
+      workerPhone,
+      workerName,
+      source,
+      status: "pending_confirmation",
+      messages: mergeDraftMessages(activeDraft, effectiveMessage),
+      normalizedEvent,
+      normalizedEvents,
+      missingFields: [],
+      lastMessage: message,
+    });
+    analysis.isComplete = false;
+    analysis.missingFields = [];
+    analysis.workerFeedback = buildDraftConfirmationMessage({
+      events: normalizedEvents,
+      workerName,
+    });
+    analysis.clarificationMessage = analysis.workerFeedback;
+  } else if (analysis.isComplete) {
     savedEvents = await saveEvents(normalizedEvents);
     savedEvent = savedEvents[0] || null;
     events = await readEvents();
     metrics = buildMetricsFromEvents(events);
+    if (activeDraft?.id) {
+      await closeConversationDraft(activeDraft, "closed");
+    }
+  } else if (isWebhookSource(source) && workerPhone) {
+    conversationDraft = await saveConversationDraft({
+      id: activeDraft?.id,
+      workerPhone,
+      workerName,
+      source,
+      status: "open",
+      messages: mergeDraftMessages(activeDraft, effectiveMessage),
+      normalizedEvent,
+      normalizedEvents,
+      missingFields: analysis.missingFields,
+      lastMessage: message,
+    });
   }
 
-  if (sendViaTriiRequested && workerPhone) {
+  if (sendViaTriiRequested && workerPhone && (analysis.workerFeedback || analysis.clarificationMessage)) {
     const outboundText = analysis.isComplete ? analysis.workerFeedback : analysis.clarificationMessage;
     triiDelivery = await sendViaTrii({
       phone: workerPhone,
@@ -842,6 +1008,7 @@ async function processIncomingMessage(body) {
     metrics,
     triiDelivery,
     contextLearningSuggestion,
+    conversationDraft,
   };
 
   await logInteraction({
@@ -874,6 +1041,9 @@ async function processIncomingMessage(body) {
       triiDelivery: responsePayload.triiDelivery,
       contextLearningSuggestion: responsePayload.contextLearningSuggestion,
       registrationFlow,
+      conversationDraft: responsePayload.conversationDraft
+        ? { id: responsePayload.conversationDraft.id, status: responsePayload.conversationDraft.status }
+        : null,
     },
   });
 
@@ -2406,6 +2576,10 @@ function enrichOwnerObservationFields(event, message) {
   if (!enriched.economicLabel) {
     enriched.economicLabel = parseEconomicLabel(source, enriched.economicKind, enriched.derivedCategory);
   }
+  if (/^venta\s+de\s+venta$/i.test(cleanNullable(enriched.economicLabel) || "")) {
+    const productLabel = parseProductLabelFromSource(source);
+    if (productLabel) enriched.economicLabel = productLabel;
+  }
   if (!enriched.eventSummary) {
     enriched.eventSummary = source;
   }
@@ -2480,6 +2654,15 @@ function enrichOwnerObservationFields(event, message) {
     enriched.quantity = measure.quantity;
   }
   if (measure.unit && !enriched.unit) enriched.unit = measure.unit;
+  const unitPriceTotal = parseQuantityUnitPriceTotal(source);
+  if (unitPriceTotal && (!normalizeAmount(enriched.amount) || normalizeAmount(enriched.amount) === unitPriceTotal.unitPrice)) {
+    enriched.amount = unitPriceTotal.total;
+    enriched.moneyParsingNote =
+      enriched.moneyParsingNote ||
+      `Monto calculado como ${unitPriceTotal.quantity} x ${formatCurrency(unitPriceTotal.unitPrice)}.`;
+    if (normalizeAmount(enriched.quantity) === null) enriched.quantity = unitPriceTotal.quantity;
+    if (!enriched.unit) enriched.unit = unitPriceTotal.unit;
+  }
   if (amountInfo?.note && !enriched.moneyParsingNote) enriched.moneyParsingNote = amountInfo.note;
   if (finance.grossAmount !== null) enriched.grossAmount = finance.grossAmount;
   if (finance.costAmount !== null) enriched.costAmount = finance.costAmount;
@@ -2613,6 +2796,33 @@ function parseQuantityUnit(message) {
     quantity: parsed?.amount ?? Number(match[1].replace(",", ".")),
     unit: cleanNullable(match[2]?.toLowerCase()),
   };
+}
+
+function parseQuantityUnitPriceTotal(message) {
+  const text = String(message || "");
+  const match = text.match(
+    /\b(\d+(?:[.,]\d+)?)\s+(botellas?|cajas?|bidones?|litros?|unidades?|pares?|docenas?|lentes?|aceites?|filtros?)\s+(?:a|por\s+cada\s+uno|cada\s+uno|c\/u)\s+\$?\s*(\d{3,9}(?:[.,]\d{1,2})?)\b/i
+  );
+  if (!match) return null;
+  const quantity = Number(String(match[1]).replace(",", "."));
+  const unitPrice = parseMoneyValue(match[3])?.amount ?? null;
+  if (!Number.isFinite(quantity) || quantity <= 0 || !unitPrice) return null;
+  return {
+    quantity,
+    unit: cleanNullable(match[2]?.toLowerCase()),
+    unitPrice,
+    total: quantity * unitPrice,
+  };
+}
+
+function parseProductLabelFromSource(message) {
+  const text = String(message || "");
+  const sold = cleanNullable(text.match(/\bvend[ií]\s+([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+?)(?=\n|,|\.|$)/i)?.[1]);
+  if (sold) return `Venta de ${sold.toLowerCase()}`;
+  const quantityProduct = cleanNullable(
+    text.match(/\b\d+(?:[.,]\d+)?\s+(botellas?|cajas?|bidones?|litros?|unidades?|pares?|docenas?|lentes?|aceites?|filtros?)\s+(?:de\s+)?([A-Za-zÁÉÍÓÚáéíóúñÑ\s]+?)(?=\s+(?:a|por|en|ya)\b|,|\.|\n|$)/i)?.[2]
+  );
+  return quantityProduct ? `Venta de ${quantityProduct.toLowerCase()}` : null;
 }
 
 function cleanHumanPhrase(value) {
@@ -2832,6 +3042,14 @@ async function ensureLearningSuggestionsFile() {
   }
 }
 
+async function ensureConversationDraftsFile() {
+  try {
+    await access(conversationDraftsFile);
+  } catch {
+    await writeFile(conversationDraftsFile, "[]", "utf8");
+  }
+}
+
 async function ensureLogsDir() {
   await mkdir(interactionLogsDir, { recursive: true });
 }
@@ -2915,12 +3133,25 @@ async function ensureSqliteStorage() {
         payload_json TEXT NOT NULL
       );
 
+      CREATE TABLE IF NOT EXISTS conversation_drafts (
+        id TEXT PRIMARY KEY,
+        worker_phone TEXT NOT NULL,
+        source TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'open',
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        payload_json TEXT NOT NULL
+      );
+
       CREATE INDEX IF NOT EXISTS idx_events_created_at ON events(created_at DESC);
       CREATE INDEX IF NOT EXISTS idx_events_worker_phone ON events(worker_phone);
       CREATE INDEX IF NOT EXISTS idx_interactions_timestamp ON interactions(timestamp DESC);
       CREATE INDEX IF NOT EXISTS idx_interactions_worker_phone ON interactions(worker_phone);
       CREATE INDEX IF NOT EXISTS idx_learning_suggestions_status ON learning_suggestions(status);
       CREATE INDEX IF NOT EXISTS idx_learning_suggestions_created_at ON learning_suggestions(created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_conversation_drafts_phone_source ON conversation_drafts(worker_phone, source, status);
+      CREATE INDEX IF NOT EXISTS idx_conversation_drafts_updated_at ON conversation_drafts(updated_at DESC);
     `);
     ensureSqliteColumn("interactions", "external_message_id", "TEXT");
     sqliteExec(
@@ -3465,6 +3696,125 @@ async function readInteractions({ limit = 100, phone = null } = {}) {
   return rows.map((row) => JSON.parse(row.payload_json));
 }
 
+async function readConversationDraft({ workerPhone, source }) {
+  const phone = normalizePhone(workerPhone);
+  const cleanSource = cleanNullable(source) || "manual-ui";
+  if (!phone) return null;
+
+  if (sqliteStorageReady) {
+    const rows = sqliteAll(
+      `SELECT payload_json FROM conversation_drafts
+        WHERE worker_phone = ?
+          AND status IN ('open', 'pending_confirmation')
+          AND expires_at >= ?
+        ORDER BY updated_at DESC
+        LIMIT 8`,
+      [phone, new Date().toISOString()]
+    );
+    const drafts = rows.map((row) => JSON.parse(row.payload_json));
+    return mergeConversationDrafts(drafts);
+  }
+
+  const drafts = await readJsonConversationDrafts();
+  return mergeConversationDrafts(
+    drafts
+      .filter(
+        (draft) =>
+          normalizePhone(draft.workerPhone) === phone &&
+          ["open", "pending_confirmation"].includes(draft.status) &&
+          Date.parse(draft.expiresAt || "") >= Date.now()
+      )
+      .sort((a, b) => Date.parse(b.updatedAt || "") - Date.parse(a.updatedAt || ""))
+  );
+}
+
+function mergeConversationDrafts(drafts) {
+  const list = (Array.isArray(drafts) ? drafts : []).filter(Boolean);
+  if (!list.length) return null;
+  const latest = [...list].sort((a, b) => Date.parse(b.updatedAt || "") - Date.parse(a.updatedAt || ""))[0];
+  const chronological = [...list].sort((a, b) => Date.parse(a.createdAt || a.updatedAt || "") - Date.parse(b.createdAt || b.updatedAt || ""));
+  const messages = chronological.flatMap((draft) => (Array.isArray(draft.messages) ? draft.messages : []));
+  return {
+    ...latest,
+    messages: Array.from(new Set(messages.map((message) => String(message || "").trim()).filter(Boolean))),
+    mergedDraftIds: list.map((draft) => draft.id).filter(Boolean),
+  };
+}
+
+async function saveConversationDraft(draft) {
+  const now = new Date().toISOString();
+  const payload = {
+    ...draft,
+    id: draft.id || crypto.randomUUID(),
+    workerPhone: normalizePhone(draft.workerPhone),
+    source: cleanNullable(draft.source) || "manual-ui",
+    status: draft.status || "open",
+    createdAt: draft.createdAt || now,
+    updatedAt: now,
+    expiresAt:
+      draft.expiresAt ||
+      new Date(Date.now() + envConfig.conversationDraftTtlMinutes * 60 * 1000).toISOString(),
+  };
+
+  if (sqliteStorageReady) {
+    sqliteRun(
+      `INSERT OR REPLACE INTO conversation_drafts
+        (id, worker_phone, source, status, created_at, updated_at, expires_at, payload_json)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        payload.id,
+        payload.workerPhone,
+        payload.source,
+        payload.status,
+        payload.createdAt,
+        payload.updatedAt,
+        payload.expiresAt,
+        JSON.stringify(payload),
+      ]
+    );
+  } else {
+    const drafts = await readJsonConversationDrafts();
+    const next = drafts.filter((item) => item.id !== payload.id);
+    next.unshift(payload);
+    await writeFile(conversationDraftsFile, JSON.stringify(next.slice(0, 500), null, 2), "utf8");
+  }
+
+  return payload;
+}
+
+async function closeConversationDraft(draft, status = "closed") {
+  if (!draft?.id) return;
+  const closed = {
+    ...draft,
+    status,
+    updatedAt: new Date().toISOString(),
+  };
+  const ids = Array.from(new Set([draft.id, ...(Array.isArray(draft.mergedDraftIds) ? draft.mergedDraftIds : [])].filter(Boolean)));
+
+  if (sqliteStorageReady) {
+    for (const id of ids) {
+      sqliteRun(
+        "UPDATE conversation_drafts SET status = ?, updated_at = ?, payload_json = ? WHERE id = ?",
+        [closed.status, closed.updatedAt, JSON.stringify({ ...closed, id }), id]
+      );
+    }
+  } else {
+    const drafts = await readJsonConversationDrafts();
+    const next = drafts.map((item) => (ids.includes(item.id) ? { ...closed, id: item.id } : item));
+    await writeFile(conversationDraftsFile, JSON.stringify(next, null, 2), "utf8");
+  }
+}
+
+async function readJsonConversationDrafts() {
+  try {
+    const raw = await readFile(conversationDraftsFile, "utf8");
+    const parsed = JSON.parse(raw || "[]");
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
 async function findInteractionByExternalMessageId(externalMessageId) {
   if (!externalMessageId || !sqliteStorageReady) return null;
   const row = sqliteGet(
@@ -3528,6 +3878,82 @@ function normalizeExternalMessageId(source, externalMessageId) {
 
 function isWebhookSource(source) {
   return ["meta-webhook", "trii-webhook"].includes(cleanNullable(source));
+}
+
+function isConfirmationMessage(message) {
+  return /^(s[ií]|si|confirmo|confirmar|dale|ok|okay|registralo|registrar|guardalo|guardar|as[ií]\s+est[aá]|correcto|perfecto)\b/i.test(
+    String(message || "").trim()
+  );
+}
+
+function isRejectionMessage(message) {
+  return /^(no|cancel[aá]|cancelar|borr[aá]|borrar|descart[aá]|descartar|esper[aá]|espera|mal|incorrecto)\b/i.test(
+    String(message || "").trim()
+  );
+}
+
+function shouldWaitForMoreInfo(message) {
+  return /\b(ya te digo|ahora te digo|despu[eé]s te digo|te paso|ahora te paso|despu[eé]s te paso|falta|me falta|aguant[aá]|esper[aá]|espera|un segundo|un toque|en un rato|luego te paso|todav[ií]a no|no tengo ahora)\b/i.test(
+    String(message || "")
+  );
+}
+
+function buildEffectiveMessageWithDraft({ draft, conversationMessage, currentMessage }) {
+  const current = cleanNullable(conversationMessage || currentMessage);
+  if (!draft?.messages?.length) return current || "";
+  if (looksLikeStandaloneEconomicEvent(currentMessage) && !looksLikeConversationContinuation(currentMessage)) {
+    return current || "";
+  }
+  const parts = [...draft.messages, current]
+    .flatMap((part) => String(part || "").split(/\n+/))
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return Array.from(new Set(parts)).join("\n");
+}
+
+function mergeDraftMessages(draft, message) {
+  const parts = [
+    ...(Array.isArray(draft?.messages) ? draft.messages : []),
+    ...String(message || "").split(/\n+/),
+  ]
+    .map((part) => part.trim())
+    .filter(Boolean);
+  return Array.from(new Set(parts)).slice(-12);
+}
+
+function buildDraftConfirmationMessage({ events, workerName }) {
+  const name = firstName(workerName) || "genial";
+  const list = (Array.isArray(events) ? events : [])
+    .map((event) => {
+      const kind = event.economicKind === "producto" ? "producto" : "servicio";
+      const label = event.economicLabel || "evento";
+      const amount = event.amount !== null && event.amount !== undefined ? ` por ${formatCurrency(event.amount)}` : "";
+      const payment =
+        event.paymentStatus === "cobrado"
+          ? "cobrado"
+          : event.paymentStatus === "pendiente_cobro"
+            ? "pendiente de cobro"
+            : "sin estado de cobro";
+      const area = event.broadArea ? ` en ${event.broadArea}` : "";
+      return `${kind} "${label}"${amount}${area}, ${payment}`;
+    })
+    .join("; ");
+  return `Tengo armado esto, ${name}: ${list}. ¿Lo registro así? Respondé "sí" para guardar o "no" para corregir.`;
+}
+
+function buildConfirmedDraftFeedback({ events, workerName, previousEvents }) {
+  const first = Array.isArray(events) ? events[0] : null;
+  if (!first) return "Listo, lo registré.";
+  const tracking = buildWorkerTracking({ normalizedEvent: first, previousEvents });
+  return buildWarmWorkerFeedback({
+    normalizedEvent: first,
+    missingFields: [],
+    isComplete: true,
+    baseFeedback: null,
+    tracking,
+    workerName,
+    registrationFlow: { knownUser: true },
+  });
 }
 
 function enqueueWebhookMessage({ workerName, workerPhone, message, externalMessageId, source }) {
@@ -3699,8 +4125,33 @@ async function buildMessageWithConversationContext({ source, workerPhone, messag
     .filter(({ interaction }) => hasIncompleteEconomicOutput(interaction))
     .slice(0, 3)
     .reverse();
+  const recentUnresolved = interactions
+    .map((interaction) => ({ interaction, input: getInteractionInput(interaction) }))
+    .filter(({ input }) => normalizePhone(input?.workerPhone) === phone && cleanNullable(input?.message))
+    .filter(({ interaction }) => {
+      const output = interaction?.output || {};
+      const savedIds = Array.isArray(output.savedEventIds) ? output.savedEventIds : [];
+      return savedIds.length === 0 && !output.historyQuery;
+    })
+    .slice(0, 5)
+    .reverse();
 
-  if (!recentIncomplete.length) {
+  const seenContextMessages = new Set();
+  const contextItems = [...recentIncomplete, ...recentUnresolved]
+    .filter(({ input }) => {
+      const key = cleanNullable(input?.message);
+      if (!key || seenContextMessages.has(key)) return false;
+      seenContextMessages.add(key);
+      return true;
+    })
+    .sort((a, b) => {
+      const atA = Date.parse(a.interaction?.receivedAt || a.interaction?.timestamp || "");
+      const atB = Date.parse(b.interaction?.receivedAt || b.interaction?.timestamp || "");
+      return (Number.isFinite(atA) ? atA : 0) - (Number.isFinite(atB) ? atB : 0);
+    })
+    .slice(-6);
+
+  if (!contextItems.length) {
     return {
       message: originalMessage,
       used: false,
@@ -3708,7 +4159,7 @@ async function buildMessageWithConversationContext({ source, workerPhone, messag
     };
   }
 
-  const previousMessages = recentIncomplete
+  const previousMessages = contextItems
     .map(({ input }) => cleanNullable(input.message))
     .filter(Boolean);
   const parts = previousMessages
@@ -4094,7 +4545,10 @@ function parsePaymentStatus(message, executionStatus, amount) {
 }
 
 function parseLocation(message) {
-  const match = message.match(/(?:en|zona|barrio)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+?)(?=\s+(?:por|y|con|ya|despu[eé]s|para)\b|[.,;]|$)/i);
+  const text = String(message || "").replace(/\bya te digo la zona\b/gi, " ");
+  const preferred = text.match(/\b(?:fue|es|queda|realizad[oa])\s+en\s+(zona\s+[A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+?)(?=\s+(?:por|y|con|ya|despu[eé]s|para)\b|[.,;]|\n|$)/i);
+  if (preferred) return preferred[1].trim().replace(/[.,;]+$/, "");
+  const match = text.match(/(?:en|zona|barrio)\s+([A-Za-zÁÉÍÓÚáéíóúñÑ0-9\s]+?)(?=\s+(?:por|y|con|ya|despu[eé]s|para)\b|[.,;]|\n|$)/i);
   return match ? match[1].trim().replace(/[.,;]+$/, "") : null;
 }
 
