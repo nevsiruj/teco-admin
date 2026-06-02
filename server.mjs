@@ -1375,9 +1375,16 @@ function sanitizeNormalizedEvent(input) {
   }
 
   if (!paymentStatus && executionStatus === "realizado") {
-    paymentStatus =
-      parsePaymentStatus(sourceMessage || "", executionStatus, input.amount) ||
-      (normalizeAmount(input.amount) ? "cobrado" : null);
+    paymentStatus = parsePaymentStatus(sourceMessage || "", executionStatus, input.amount) || null;
+  }
+
+  if (
+    paymentStatus &&
+    executionStatus === "realizado" &&
+    sourceMessage &&
+    !parsePaymentStatus(sourceMessage, executionStatus, input.amount)
+  ) {
+    paymentStatus = null;
   }
 
   return {
@@ -3544,10 +3551,30 @@ function hasIncompleteEconomicOutput(interaction) {
 function looksLikeConversationContinuation(message) {
   const text = String(message || "").trim();
   if (!text) return false;
-  return (
-    /^(parte\s*\d+|tamb[ié]n|adem[aá]s|y\s+|ahora\s+|despu[eé]s\s+)/i.test(text) ||
-    /\b(fue en|en barrio|zona|cobr[eé]|cobr[oó]|me pagaron|ya me pagaron|transferencia|efectivo|mercado\s*pago|queda pendiente|pendiente de cobro|son\s+\d|por\s+\d|\$\s*\d|\d+\s*(todo|pesos|ars))\b/i.test(text)
+  if (isExplicitContinuationMessage(text)) return true;
+  if (looksLikeStandaloneEconomicEvent(text)) return false;
+  return /\b(fue en|en barrio|zona|cobr[eé]|cobr[oó]|me pagaron|ya me pagaron|transferencia|efectivo|mercado\s*pago|queda pendiente|pendiente de cobro|son\s+\d|por\s+\d|\$\s*\d|\d+\s*(todo|pesos|ars))\b/i.test(text);
+}
+
+function isExplicitContinuationMessage(message) {
+  return /^(parte\s*\d+|tamb[ié]n|adem[aá]s|y\s+|ahora\s+|despu[eé]s\s+|perd[oó]n|correcci[oó]n|lo anterior|de ese|para ese)/i.test(
+    String(message || "").trim()
   );
+}
+
+function looksLikeStandaloneEconomicEvent(message) {
+  const text = String(message || "").trim();
+  if (!text) return false;
+  const startsAsNewEvent =
+    /^(hice|realic[eé]|vend[ií]|vendo|vendimos|entregu[eé]|cerr[eé]|arregl[eé]|instal[eé]|repar[eé]|cambi[eé]|pint[eé]|limpi[eé]|prest[eé]|necesito cargar|cargar|registrar|anot[aá]|anotar|tengo que cargar|tengo para cargar)\b/i.test(text);
+  const hasStandaloneAmount =
+    /\$\s*\d|\b\d{4,9}(?:[.,]\d{1,2})?\b|\b\d+\s*(?:pesos|ars|mil|lucas|k|todo|total)\b/i.test(text);
+  const hasEconomicSignal = Boolean(
+    parseEconomicKind(text) ||
+      parseCategory(text) ||
+      hasStandaloneAmount
+  );
+  return startsAsNewEvent && hasEconomicSignal;
 }
 
 async function buildMessageWithConversationContext({ source, workerPhone, message }) {
@@ -3756,8 +3783,18 @@ function parseAmount(message) {
     message.match(new RegExp(String.raw`(${moneyToken})\s*(?:pesos|ars|mil|lucas|k)\b`, "i")) ||
     message.match(new RegExp(String.raw`(?:^|\n|\b)(${moneyToken})\s*(?:todo|total)\b`, "i")) ||
     message.match(new RegExp(String.raw`(\$\s*(?:\d{1,3}(?:[.,\s]\d{3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,3})?))`, "i"));
-  if (!explicitMoneyMatch) return null;
+  if (!explicitMoneyMatch) return parseStandaloneEconomicAmount(message);
   return parseMoneyValue(explicitMoneyMatch[1])?.amount ?? null;
+}
+
+function parseStandaloneEconomicAmount(message) {
+  const text = String(message || "");
+  if (!looksLikeStandaloneEconomicEvent(text)) return null;
+  const matches = [...text.matchAll(/\b(\d{4,9})(?:[.,]\d{1,2})?\b/g)]
+    .map((match) => match[0])
+    .filter((value) => !/^20\d{2}$/.test(value));
+  if (matches.length !== 1) return null;
+  return parseMoneyValue(matches[0])?.amount ?? null;
 }
 
 function parseMoneyInfo(message) {
