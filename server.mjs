@@ -57,6 +57,9 @@ const envConfig = {
   llmTimeoutMs: Number(process.env.LLM_TIMEOUT_MS || 90000),
   llmMaxCompletionTokens: Number(process.env.LLM_MAX_COMPLETION_TOKENS || 1000),
   webhookGroupDelayMs: Number(process.env.WEBHOOK_GROUP_DELAY_MS || 8000),
+  webhookDuplicateContentWindowMinutes: Number(
+    process.env.WEBHOOK_DUPLICATE_CONTENT_WINDOW_MINUTES || 3
+  ),
   metaGraphVersion: process.env.META_GRAPH_VERSION || "v22.0",
   metaAccessToken: process.env.META_ACCESS_TOKEN || "",
   metaPhoneNumberId: process.env.META_PHONE_NUMBER_ID || "",
@@ -481,7 +484,7 @@ async function processIncomingMessage(body) {
       source,
       workerPhone: workerPhoneInput,
       message,
-      withinMinutes: 24 * 60,
+      withinMinutes: envConfig.webhookDuplicateContentWindowMinutes,
     });
     if (recentSimilarInteraction) {
       return buildDuplicateWebhookResponse({
@@ -523,7 +526,7 @@ async function processIncomingMessage(body) {
     const recentSimilarEvent = findRecentSimilarSavedEvent({
       events: workerEventsBefore,
       message,
-      withinMinutes: 24 * 60,
+      withinMinutes: envConfig.webhookDuplicateContentWindowMinutes,
     });
     if (recentSimilarEvent) {
       return buildDuplicateSavedEventResponse({
