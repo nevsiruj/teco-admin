@@ -56,6 +56,7 @@ const envConfig = {
   llmProvider: process.env.LLM_PROVIDER || "MiMo V2.5 Pro",
   llmTimeoutMs: Number(process.env.LLM_TIMEOUT_MS || 90000),
   llmMaxCompletionTokens: Number(process.env.LLM_MAX_COMPLETION_TOKENS || 1000),
+  webhookGroupDelayMs: Number(process.env.WEBHOOK_GROUP_DELAY_MS || 8000),
   metaGraphVersion: process.env.META_GRAPH_VERSION || "v22.0",
   metaAccessToken: process.env.META_ACCESS_TOKEN || "",
   metaPhoneNumberId: process.env.META_PHONE_NUMBER_ID || "",
@@ -71,6 +72,8 @@ const envConfig = {
   triiChannelId: process.env.TRII_CHANNEL_ID || "",
   triiApiKeyHeader: process.env.TRII_API_KEY_HEADER || "",
 };
+
+const webhookMessageBatches = new Map();
 
 const defaultOwnerContext = {
   businessContext:
@@ -303,48 +306,39 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "POST" && url.pathname === "/api/meta/webhook") {
       const body = await readJsonBody(req);
       const incomingBatch = extractIncomingMetaMessages(body);
-      const processed = [];
-
-      for (const incoming of incomingBatch.messages) {
-        const result = await processIncomingMessage({
+      const queued = incomingBatch.messages.map((incoming) =>
+        enqueueWebhookMessage({
           workerName: incoming.workerName,
           workerPhone: incoming.workerPhone,
           message: incoming.message,
           externalMessageId: incoming.metaMessageId,
           source: "meta-webhook",
-          sendViaTrii: true,
-        });
-
-        processed.push({
-          incoming,
-          processed: result,
-        });
-      }
+        })
+      );
 
       return sendJson(res, 200, {
         ok: true,
         object: incomingBatch.object,
         metadata: incomingBatch.metadata,
         statuses: incomingBatch.statuses,
-        processed,
+        queued,
       });
     }
 
     if (req.method === "POST" && url.pathname === "/api/trii/webhook") {
       const body = await readJsonBody(req);
       const incoming = extractIncomingTriiMessage(body);
-      const result = await processIncomingMessage({
+      const queued = enqueueWebhookMessage({
         workerName: incoming.workerName,
         workerPhone: incoming.workerPhone,
         message: incoming.message,
         externalMessageId: incoming.triiMessageId,
         source: "trii-webhook",
-        sendViaTrii: true,
       });
       return sendJson(res, 200, {
         ok: true,
         incoming,
-        processed: result,
+        queued,
       });
     }
 
@@ -3531,6 +3525,111 @@ function normalizeExternalMessageId(source, externalMessageId) {
 
 function isWebhookSource(source) {
   return ["meta-webhook", "trii-webhook"].includes(cleanNullable(source));
+}
+
+function enqueueWebhookMessage({ workerName, workerPhone, message, externalMessageId, source }) {
+  const cleanSource = cleanNullable(source) || "meta-webhook";
+  const phone = normalizePhone(workerPhone);
+  const cleanMessage = cleanNullable(message);
+  const queueKey = `${cleanSource}:${phone || crypto.randomUUID()}`;
+
+  if (!phone || !cleanMessage) {
+    return {
+      ok: false,
+      queued: false,
+      reason: "missing-phone-or-message",
+      workerPhone: phone,
+    };
+  }
+
+  let existing = webhookMessageBatches.get(queueKey);
+  if (existing && existing.messages.length && looksLikeStandaloneEconomicEvent(cleanMessage)) {
+    processQueuedWebhookBatch(queueKey).catch((error) => {
+      logServerError("webhook-batch-split-processing-failed", {
+        queueKey,
+        source: cleanSource,
+        workerPhone: phone,
+        error: error?.message || String(error),
+      });
+    });
+    existing = null;
+  }
+
+  const batch = existing || {
+    queueKey,
+    source: cleanSource,
+    workerPhone: phone,
+    workerName: cleanNullable(workerName),
+    messages: [],
+    timer: null,
+    createdAt: new Date().toISOString(),
+  };
+
+  batch.workerName = cleanNullable(workerName) || batch.workerName;
+  batch.messages.push({
+    message: cleanMessage,
+    externalMessageId: cleanNullable(externalMessageId),
+    receivedAt: new Date().toISOString(),
+  });
+
+  if (batch.timer) clearTimeout(batch.timer);
+  batch.timer = setTimeout(() => {
+    processQueuedWebhookBatch(queueKey).catch((error) => {
+      logServerError("webhook-batch-processing-failed", {
+        queueKey,
+        source: cleanSource,
+        workerPhone: phone,
+        error: error?.message || String(error),
+      });
+    });
+  }, Math.max(0, envConfig.webhookGroupDelayMs));
+
+  webhookMessageBatches.set(queueKey, batch);
+
+  return {
+    ok: true,
+    queued: true,
+    queueKey,
+    pendingMessages: batch.messages.length,
+    processAfterMs: envConfig.webhookGroupDelayMs,
+  };
+}
+
+async function processQueuedWebhookBatch(queueKey) {
+  const batch = webhookMessageBatches.get(queueKey);
+  if (!batch) return null;
+  webhookMessageBatches.delete(queueKey);
+  if (batch.timer) clearTimeout(batch.timer);
+
+  const messages = batch.messages
+    .map((item) => cleanNullable(item.message))
+    .filter(Boolean);
+  if (!messages.length) return null;
+
+  const uniqueMessages = Array.from(new Set(messages));
+  const externalIds = batch.messages
+    .map((item) => cleanNullable(item.externalMessageId))
+    .filter(Boolean);
+  const externalMessageId =
+    externalIds.length === 1
+      ? externalIds[0]
+      : `batch:${crypto
+          .createHash("sha256")
+          .update(`${batch.source}:${batch.workerPhone}:${externalIds.join("|")}:${uniqueMessages.join("\n")}`)
+          .digest("hex")
+          .slice(0, 32)}`;
+
+  const combinedMessage = uniqueMessages.join("\n");
+  const result = await processIncomingMessage({
+    workerName: batch.workerName,
+    workerPhone: batch.workerPhone,
+    message: combinedMessage,
+    externalMessageId,
+    source: batch.source,
+    sendViaTrii: true,
+  });
+
+  return result;
 }
 
 function getInteractionInput(interaction) {
