@@ -79,6 +79,14 @@ const envConfig = {
 };
 
 const webhookMessageBatches = new Map();
+const webhookBatchSweepTimer = setInterval(() => {
+  flushDueWebhookBatches().catch((error) => {
+    logServerError("webhook-batch-sweep-failed", {
+      error: error?.message || String(error),
+    });
+  });
+}, 5000);
+webhookBatchSweepTimer.unref?.();
 
 const defaultOwnerContext = {
   businessContext:
@@ -600,7 +608,7 @@ async function processIncomingMessage(body) {
 
     if (isRejectionMessage(message)) {
       await closeConversationDraft(activeDraft, "rejected");
-      const responseText = "Perfecto, no lo registro. Cuando quieras, mandame el evento corregido.";
+      const responseText = "Dale, no lo guardo. Mandámelo de nuevo como quieras que quede y lo armo otra vez.";
       const triiDelivery = sendViaTriiRequested && workerPhone
         ? await sendViaTrii({ phone: workerPhone, text: responseText, context: "draft-rejected" })
         : null;
@@ -1835,10 +1843,10 @@ function buildWorkerFeedback(normalizedEvent, missingFields, isComplete) {
       return `Listo. Dejé registrado un ${kind} pendiente: ${label} para ${normalizedEvent.date}.`;
     }
 
-    return `Listo. Registré el ${kind} "${label}" por ${formatCurrency(normalizedEvent.amount)} con fecha ${normalizedEvent.date} y estado ${payment}.`;
+    return `Dale, ya dejé guardado el ${kind} "${label}" por ${formatCurrency(normalizedEvent.amount)}, con fecha ${normalizedEvent.date} y estado ${payment}.`;
   }
 
-  return "Tengo una base del evento económico, pero todavía necesito algunos datos antes de guardarlo definitivamente.";
+  return "Ya tengo una parte del evento, pero me faltan algunos datos antes de guardarlo bien.";
 }
 
 function buildWarmWorkerFeedback({
@@ -1898,7 +1906,7 @@ function buildWarmWorkerFeedback({
   }
 
   if (!isComplete && missingFields?.length) {
-    parts.push(`Para cerrarlo bien, solo falta confirmar: ${humanMissingList(missingFields)}.`);
+    parts.push(`Para dejarlo completo, confirmame esto: ${humanMissingList(missingFields)}.`);
   }
 
   return parts.filter(Boolean).join(" ");
@@ -3938,7 +3946,7 @@ function buildDraftConfirmationMessage({ events, workerName }) {
       return `${kind} "${label}"${amount}${area}, ${payment}`;
     })
     .join("; ");
-  return `Tengo armado esto, ${name}: ${list}. ¿Lo registro así? Respondé "sí" para guardar o "no" para corregir.`;
+  return `Te lo dejo preparado, ${name}: ${list}. ¿Está bien así? Si me decís "sí", lo guardo. Si no, lo corregimos.`;
 }
 
 function buildConfirmedDraftFeedback({ events, workerName, previousEvents }) {
@@ -3991,7 +3999,9 @@ function enqueueWebhookMessage({ workerName, workerPhone, message, externalMessa
     workerName: cleanNullable(workerName),
     messages: [],
     timer: null,
-    createdAt: new Date().toISOString(),
+    createdAt: Date.now(),
+    dueAt: null,
+    processing: false,
   };
 
   batch.workerName = cleanNullable(workerName) || batch.workerName;
@@ -4001,6 +4011,7 @@ function enqueueWebhookMessage({ workerName, workerPhone, message, externalMessa
     receivedAt: new Date().toISOString(),
   });
 
+  batch.dueAt = Date.now() + Math.max(0, envConfig.webhookGroupDelayMs);
   if (batch.timer) clearTimeout(batch.timer);
   batch.timer = setTimeout(() => {
     processQueuedWebhookBatch(queueKey).catch((error) => {
@@ -4027,6 +4038,8 @@ function enqueueWebhookMessage({ workerName, workerPhone, message, externalMessa
 async function processQueuedWebhookBatch(queueKey) {
   const batch = webhookMessageBatches.get(queueKey);
   if (!batch) return null;
+  if (batch.processing) return null;
+  batch.processing = true;
   webhookMessageBatches.delete(queueKey);
   if (batch.timer) clearTimeout(batch.timer);
 
@@ -4059,6 +4072,23 @@ async function processQueuedWebhookBatch(queueKey) {
   });
 
   return result;
+}
+
+async function flushDueWebhookBatches() {
+  const now = Date.now();
+  const dueKeys = [];
+  for (const [queueKey, batch] of webhookMessageBatches.entries()) {
+    if (batch?.processing) continue;
+    if (batch?.dueAt && batch.dueAt <= now) {
+      dueKeys.push(queueKey);
+    }
+  }
+
+  for (const queueKey of dueKeys) {
+    await processQueuedWebhookBatch(queueKey);
+  }
+
+  return dueKeys.length;
 }
 
 function getInteractionInput(interaction) {
